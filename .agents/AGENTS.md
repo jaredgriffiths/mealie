@@ -28,6 +28,7 @@ This file defines the project-specific rules, guidelines, and behavioral constra
 ### CI/CD & Deployments
 - **Branch Management:** Never push directly to the production branch (`mealie-next`). Ensure changes are committed and pushed to the `dev` branch.
 - **Docker Publishing (Dev):** Use the root script [dev-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/dev-publish.sh) to checkout `dev`, commit/push changes, and build the Docker image locally on the localhost Docker daemon tagged as `mealie:dev`.
-- **Docker Publishing (Live):** Use the root script [live-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/live-publish.sh) to merge `dev` into `mealie-next`, push to origin, build the Docker image, tag it as `192.168.50.107:5000/mealie:latest`, and push it to the local LAN Docker registry.
+- **Docker Publishing (Live):** Use the root script [live-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/live-publish.sh) to merge `dev` into `mealie-next` and push to origin, which automatically triggers the GitHub Actions workflow to build and publish the production image to GitHub Container Registry (`ghcr.io/<username>/mealie:latest`).
+
 
 

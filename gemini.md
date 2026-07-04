@@ -55,6 +55,7 @@ Workspace customization resources for AI agents are located under the [.agents/]
 To ensure quality and structure when releasing updates:
 1. **Branch Protection & Development:** All feature/dev updates must be committed to the `dev` branch rather than directly to `mealie-next`.
 2. **Dev Publication (Localhost):** The [dev-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/dev-publish.sh) script switches to `dev`, commits/pushes changes, and builds the Docker image locally on the localhost Docker daemon (`mealie:dev`).
-3. **Live Publication (LAN Registry):** The [live-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/live-publish.sh) script merges `dev` into `mealie-next`, pushes production to origin, builds the Docker image, and publishes it to the local LAN Docker registry at `192.168.50.107:5000/mealie:latest`.
+3. **Live Publication (GHCR):** The [live-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/live-publish.sh) script merges `dev` into `mealie-next` and pushes it to GitHub, which triggers the GitHub Actions workflow at [.github/workflows/dev-live-publish.yml](file:///home/quok/Antigravity/mealie/mealie-1/.github/workflows/dev-live-publish.yml) to automatically build the Docker image and publish it to the GitHub Container Registry (`ghcr.io/<username>/mealie:latest`). Your LAN server can then pull directly from GHCR.
+
 
 

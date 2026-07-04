@@ -1,90 +1,71 @@
 #!/usr/bin/env bash
-# Exit immediately if a command exits with a non-zero status
-set -e
+# Local development and dev-push script
 
-# Configuration
-BRANCH_NAME="dev"
-IMAGE_NAME="mealie"
-IMAGE_TAG="dev"
+echo "============================================="
+echo "        Mealie - Local Dev Launcher          "
+echo "============================================="
 
-# Help message
-show_help() {
-  echo "Usage: ./dev-publish.sh [OPTIONS]"
-  echo ""
-  echo "Automates the Dev workflow: checks out/creates the '$BRANCH_NAME' branch,"
-  echo "commits changes, pushes to origin, and builds the Docker image locally."
-  echo ""
-  echo "Options:"
-  echo "  -t, --tag TAG             Docker image tag (default: '$IMAGE_TAG')"
-  echo "  -m, --message MESSAGE     Commit message (if not provided, git status will be checked and committed)"
-  echo "  -h, --help                Show this help message"
-}
-
-# Parse options
-COMMIT_MESSAGE=""
-
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    -t|--tag)
-      IMAGE_TAG="$2"
-      shift 2
-      ;;
-    -m|--message)
-      COMMIT_MESSAGE="$2"
-      shift 2
-      ;;
-    -h|--help)
-      show_help
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1"
-      show_help
-      exit 1
-      ;;
-  esac
-done
-
-# 1. Branch Management
-echo "=== Step 1: Checking branch state ==="
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "Error: Not a git repository."
-  exit 1
+# 1. Verify Docker Daemon is running
+if ! docker info >/dev/null 2>&1; then
+    echo "❌ Error: Docker daemon is not running. Please start Docker first."
+    exit 1
 fi
 
-# Switch/create dev branch
-if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-  echo "Switching to existing branch '$BRANCH_NAME'..."
-  git checkout "$BRANCH_NAME"
-else
-  echo "Creating and switching to new branch '$BRANCH_NAME'..."
-  git checkout -b "$BRANCH_NAME"
+# 2. Git Branch & Changes Check
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    CURRENT_BRANCH=$(git branch --show-current)
+    
+    # Warn if not on dev branch
+    if [ "$CURRENT_BRANCH" != "dev" ]; then
+        echo "ℹ️ Note: You are currently on branch '$CURRENT_BRANCH'."
+        echo "Pushing changes will update the remote 'dev' branch."
+        read -p "Would you like to switch to your local 'dev' branch first? (y/N): " -r branch_choice
+        if [[ "$branch_choice" =~ ^[Yy]$ ]]; then
+            git checkout dev
+            CURRENT_BRANCH="dev"
+        fi
+    fi
+
+    # Check for uncommitted changes
+    status_output=$(git status --porcelain)
+    if [ -n "$status_output" ]; then
+        echo "⚠️ You have uncommitted changes in your workspace."
+        read -p "Would you like to commit and push them to the remote dev branch? (y/N): " -r push_choice
+        if [[ "$push_choice" =~ ^[Yy]$ ]]; then
+            read -p "Enter commit message: " -r commit_msg
+            if [ -z "$commit_msg" ]; then
+                commit_msg="dev: update local progress"
+            fi
+            
+            echo "Staging and committing changes..."
+            git add -A
+            git commit -m "$commit_msg"
+            
+            echo "Pushing HEAD to remote 'dev' branch..."
+            git push origin HEAD:dev
+        else
+            echo "Skipping commit/push. Local changes will be used only locally."
+        fi
+    else
+        echo "✅ Working tree is clean."
+        # If on dev, check if local is ahead of origin
+        if [ "$CURRENT_BRANCH" = "dev" ] && [ -n "$(git log origin/dev..HEAD 2>/dev/null)" ]; then
+            read -p "Your local dev branch is ahead of origin/dev. Push to GitHub? (y/N): " -r push_ahead
+            if [[ "$push_ahead" =~ ^[Yy]$ ]]; then
+                git push origin dev
+            fi
+        fi
+    fi
 fi
 
-# Stage changes
-echo "Staging files..."
-git add -A
+# 3. Local Docker Build & Start (Development build from workspace)
+echo "Starting local docker-compose environment..."
+docker compose -f docker/docker-compose.yml down
+docker compose -f docker/docker-compose.yml up --build -d
 
-# Check for changes
-if git diff-index --quiet HEAD --; then
-  echo "No changes detected to commit."
-else
-  if [ -z "$COMMIT_MESSAGE" ]; then
-    COMMIT_MESSAGE="chore: dev updates [$(date +'%Y-%m-%dT%H:%M:%S%z')]"
-  fi
-  echo "Committing changes with message: '$COMMIT_MESSAGE'..."
-  git commit -m "$COMMIT_MESSAGE"
-fi
-
-# Push to origin
-echo "Pushing changes to origin/$BRANCH_NAME..."
-git push -u origin "$BRANCH_NAME"
-
-# 2. Docker Build (Local Host Daemon)
-echo "=== Step 2: Building Docker Image (Localhost) ==="
-FULL_IMAGE_NAME="$IMAGE_NAME:$IMAGE_TAG"
-
-echo "Building Docker image '$FULL_IMAGE_NAME' from 'docker/Dockerfile'..."
-docker build -f docker/Dockerfile -t "$FULL_IMAGE_NAME" .
-
-echo "=== Dev build succeeded and is available locally on localhost Docker daemon! ==="
+echo "============================================="
+echo "🚀 Local Dev Environment is UP!"
+echo "Web app URL: http://localhost:9091"
+echo "To view logs: docker compose -f docker/docker-compose.yml logs -f"
+echo "To stop app:  docker compose -f docker/docker-compose.yml stop"
+echo "============================================="
