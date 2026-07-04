@@ -19,19 +19,33 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
 
-# Configure structured logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
-logger = logging.getLogger("sync-worker")
-
 # Load environment configurations
 load_dotenv()
 
 MEALIE_API_URL = os.getenv("MEALIE_API_URL", "http://mealie:9000")
 MEALIE_API_TOKEN = os.getenv("MEALIE_API_TOKEN")
-FIREBASE_KEY_PATH = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "/app/secrets/firebase_service_account.json")
+FIREBASE_KEY_PATH = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "/app/data/firebase_service_account.json")
+CONFIG_PATH = "/app/data/firebase_bridge_config.json"
+LOG_FILE_PATH = "/app/data/sync_worker.log"
+
+# Configure structured logging (to stdout and shared volume log file)
+logger = logging.getLogger("sync-worker")
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+# Console Handler
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+# File Handler (if log file path is writable)
+try:
+    fh = logging.FileHandler(LOG_FILE_PATH, mode="a")
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+except Exception:
+    pass
 
 # HTTPX Client configuration for local Mealie calls
 MEALIE_HEADERS = {
@@ -49,22 +63,43 @@ class MealieSyncWorker:
         self.http_client = httpx.Client(base_url=MEALIE_API_URL, headers=MEALIE_HEADERS, timeout=10.0)
         self.shutdown_event = Event()
         self.heartbeat_thread: Optional[Thread] = None
+        self.config_checker_thread: Optional[Thread] = None
+        self.is_enabled = False
 
-    def initialize_firebase(self) -> None:
+    def check_config_loop(self) -> None:
+        """Periodically check the local bridge config file to update status dynamically."""
+        while not self.shutdown_event.wait(10):  # Check every 10 seconds
+            if os.path.exists(CONFIG_PATH):
+                try:
+                    with open(CONFIG_PATH) as f:
+                        config = json.load(f)
+                        enabled = config.get("enabled", False)
+                        if enabled != self.is_enabled:
+                            self.is_enabled = enabled
+                            logger.info(f"Sync Worker enabled state toggled to: {self.is_enabled}")
+                except Exception as e:
+                    logger.debug(f"Failed to check config file: {e}")
+
+    def initialize_firebase(self) -> bool:
         """Initialize Firebase Admin SDK using the local service account key."""
-        logger.info("Initializing Firebase Admin SDK...")
         if not os.path.exists(FIREBASE_KEY_PATH):
-            raise FileNotFoundError(f"Firebase service account JSON not found at: {FIREBASE_KEY_PATH}")
+            logger.warning(f"Waiting for Firebase service account JSON key to be uploaded at: {FIREBASE_KEY_PATH}")
+            return False
 
-        cred = credentials.Certificate(FIREBASE_KEY_PATH)
-        firebase_admin.initialize_app(cred)
-        self.db = firestore.client()
-        logger.info("Firebase Admin SDK successfully initialized.")
+        try:
+            cred = credentials.Certificate(FIREBASE_KEY_PATH)
+            firebase_admin.initialize_app(cred)
+            self.db = firestore.client()
+            logger.info("Firebase Admin SDK successfully initialized.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
+            return False
 
     def update_heartbeat(self) -> None:
         """Periodically write a host health status heartbeat document to Firestore."""
         while not self.shutdown_event.wait(300):  # Run every 5 minutes
-            if not self.db:
+            if not self.is_enabled or not self.db:
                 continue
 
             try:
@@ -86,18 +121,6 @@ class MealieSyncWorker:
             except Exception as e:
                 logger.error(f"Failed to update health heartbeat: {e}")
 
-    def generate_payload_hash(self, data: Dict[str, Any]) -> str:
-        """Generate a SHA-256 hash of a payload dictionary to detect duplicate states.
-
-        Args:
-            data: The payload dictionary to hash.
-
-        Returns:
-            The hex digest representing the payload state.
-        """
-        serialized = json.dumps(data, sort_keys=True)
-        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
-
     def process_incoming_cloud_recipe(self, doc_id: str, cloud_data: Dict[str, Any]) -> None:
         """Process a recipe updated in the cloud and sync back to local Mealie if applicable.
 
@@ -105,6 +128,10 @@ class MealieSyncWorker:
             doc_id: The Firestore document identifier (matches Mealie recipe UUID).
             cloud_data: The document data dictionary retrieved from Firestore.
         """
+        # Do not run if disabled
+        if not self.is_enabled:
+            return
+
         # Loop Prevention: Skip updates originated by this worker itself
         if cloud_data.get("updated_by") == "sync_worker":
             return
@@ -152,20 +179,17 @@ class MealieSyncWorker:
             "description": cloud_data.get("description", ""),
             "recipeIngredient": [{"note": ing} for ing in cloud_data.get("ingredients", [])],
             "recipeInstructions": [{"text": step} for step in cloud_data.get("steps", [])],
-            # Extend with other fields defensively
         }
 
         # Write updates back to local Mealie
         try:
             if response.status_code == 404:
-                # Create recipe in Mealie
                 post_resp = self.http_client.post("/api/recipes", json=mealie_payload)
                 if post_resp.status_code == 201:
                     logger.info(f"Successfully created recipe {doc_id} locally.")
                 else:
                     logger.error(f"Failed to create recipe locally. Status: {post_resp.status_code}")
             else:
-                # Update recipe in Mealie
                 put_resp = self.http_client.put(f"/api/recipes/{doc_id}", json=mealie_payload)
                 if put_resp.status_code == 200:
                     logger.info(f"Successfully updated recipe {doc_id} locally.")
@@ -179,46 +203,49 @@ class MealieSyncWorker:
 
         Includes an outer loop to recover and reconnect on network failures.
         """
-        if not self.db:
-            logger.error("Database connection missing. Cannot start listeners.")
-            return
-
-        logger.info("Setting up real-time snapshot listeners...")
-
-        def on_recipe_snapshot(col_snapshot, changes, read_time) -> None:
-            for doc in col_snapshot:
-                try:
-                    self.process_incoming_cloud_recipe(doc.id, doc.to_dict())
-                except Exception as ex:
-                    logger.error(f"Failed processing snapshot document {doc.id}: {ex}")
-
-        # Real-time listener for the recipes collection
-        recipes_ref = self.db.collection("recipes")
-        
         while not self.shutdown_event.is_set():
+            if not self.is_enabled:
+                time.sleep(5)
+                continue
+
+            if not self.db:
+                if not self.initialize_firebase():
+                    time.sleep(15)
+                    continue
+
+            logger.info("Setting up real-time snapshot listeners...")
+
+            def on_recipe_snapshot(col_snapshot, changes, read_time) -> None:
+                for doc in col_snapshot:
+                    try:
+                        self.process_incoming_cloud_recipe(doc.id, doc.to_dict())
+                    except Exception as ex:
+                        logger.error(f"Failed processing snapshot document {doc.id}: {ex}")
+
+            recipes_ref = self.db.collection("recipes")
+            
             try:
-                # Register snapshot listener
                 logger.info("Registering snapshot listener on 'recipes'...")
                 recipes_watch = recipes_ref.on_snapshot(on_recipe_snapshot)
 
                 # Keep the thread alive while listening
                 while not self.shutdown_event.wait(10):
-                    pass
+                    if not self.is_enabled:
+                        logger.info("Sync Worker disabled. Unsubscribing listeners.")
+                        break
                 
-                # Unsubscribe on shutdown
                 recipes_watch.unsubscribe()
-                break
             except Exception as e:
                 logger.error(f"Firestore snapshot listener encountered an error: {e}. Reconnecting in 15 seconds...")
                 time.sleep(15)
 
     def start(self) -> None:
-        """Start the sync worker daemon, heartbeat updates, and snapshot listeners."""
-        try:
-            self.initialize_firebase()
-        except Exception as e:
-            logger.critical(f"Failed to start Sync Worker due to initialization error: {e}")
-            return
+        """Start the sync worker daemon, config loop, heartbeat updates, and snapshot listeners."""
+        logger.info("Starting Sync Worker daemon...")
+        
+        # Start config checker thread
+        self.config_checker_thread = Thread(target=self.check_config_loop, daemon=True)
+        self.config_checker_thread.start()
 
         # Start health check heartbeat thread
         self.heartbeat_thread = Thread(target=self.update_heartbeat, daemon=True)
@@ -233,6 +260,8 @@ class MealieSyncWorker:
         self.shutdown_event.set()
         if self.heartbeat_thread:
             self.heartbeat_thread.join()
+        if self.config_checker_thread:
+            self.config_checker_thread.join()
         logger.info("Sync Worker successfully stopped.")
 
 

@@ -157,6 +157,134 @@
       </v-alert>
     </section>
 
+    <!-- Firebase Sync Bridge -->
+    <section class="mt-4">
+      <BaseCardSectionTitle
+        class="pt-2"
+        :icon="$globals.icons.database"
+        :title="'Firebase Sync Bridge'"
+      />
+      <v-card class="mb-4 pa-4">
+        <v-row class="mb-2">
+          <v-col cols="12" md="6">
+            <v-list-item title="Sync Worker Status">
+              <template #prepend>
+                <v-icon :color="syncStatus.sync_worker_status === 'online' ? 'success' : 'error'">
+                  {{ syncStatus.sync_worker_status === 'online' ? $globals.icons.checkboxMarkedCircle : $globals.icons.alertCircle }}
+                </v-icon>
+              </template>
+              <v-list-item-subtitle>
+                {{ syncStatus.sync_worker_status.toUpperCase() }}
+              </v-list-item-subtitle>
+            </v-list-item>
+          </v-col>
+          <v-col cols="12" md="6" class="d-flex align-center justify-end" style="gap: 10px;">
+            <BaseButton
+              color="info"
+              :loading="state.syncing"
+              @click="triggerSync"
+            >
+              Force Sync Now
+            </BaseButton>
+            <BaseButton
+              color="success"
+              :loading="state.saving"
+              @click="saveFirebaseSettings"
+            >
+              Save Settings
+            </BaseButton>
+          </v-col>
+        </v-row>
+
+        <v-row>
+          <v-col cols="12" md="6">
+            <v-switch
+              v-model="firebaseForm.enabled"
+              label="Enable Firebase Bridge"
+              color="success"
+              hide-details
+            />
+          </v-col>
+          <v-col cols="12" md="6">
+            <v-select
+              v-model="firebaseForm.sync_strategy"
+              :items="['Hybrid Sync (LAN + Cloud Fallback)', 'LAN-Only (No Cloud)']"
+              label="Sync Strategy"
+              density="comfortable"
+            />
+          </v-col>
+        </v-row>
+
+        <v-text-field
+          v-model="firebaseForm.mealie_host_url"
+          label="Mealie Host URL (For LAN Mode)"
+          variant="outlined"
+          placeholder="http://192.168.50.107:9925"
+        />
+
+        <v-textarea
+          v-model="firebaseForm.credentials_json"
+          label="Firebase Service Account Private Key JSON"
+          variant="outlined"
+          rows="5"
+          placeholder="{ ... }"
+          hint="Paste the downloaded JSON private key credentials here."
+          persistent-hint
+        />
+
+        <div class="mt-4 d-flex align-center" style="gap: 10px;">
+          <BaseButton
+            color="secondary"
+            :loading="state.testing"
+            @click="testFirebaseCredentials"
+          >
+            Test Credentials format
+          </BaseButton>
+          <span v-if="testResult.tested" :class="testResult.success ? 'text-success' : 'text-error'">
+            {{ testResult.success ? 'Format Valid!' : 'Error: ' + testResult.error }}
+          </span>
+        </div>
+
+        <v-divider class="my-6" />
+
+        <h4 class="mb-2">Local Database Cache Sync Statistics</h4>
+        <v-row>
+          <v-col cols="4">
+            <v-card variant="tonal" class="pa-3 text-center">
+              <div class="text-h6">{{ syncStatus.recipe_count }}</div>
+              <div class="text-caption">Recipes</div>
+            </v-card>
+          </v-col>
+          <v-col cols="4">
+            <v-card variant="tonal" class="pa-3 text-center">
+              <div class="text-h6">{{ syncStatus.shopping_list_count }}</div>
+              <div class="text-caption">Shopping Lists</div>
+            </v-card>
+          </v-col>
+          <v-col cols="4">
+            <v-card variant="tonal" class="pa-3 text-center">
+              <div class="text-h6">{{ syncStatus.meal_plan_count }}</div>
+              <div class="text-caption">Meal Plans</div>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-divider class="my-6" />
+
+        <div class="d-flex justify-space-between align-center mb-2">
+          <h4>Sync Daemon Logs (Last 50 lines)</h4>
+          <BaseButton
+            variant="text"
+            density="compact"
+            @click="fetchLogs"
+          >
+            Refresh Logs
+          </BaseButton>
+        </div>
+        <pre class="bg-grey-darken-4 text-green-accent-3 pa-3 rounded text-caption overflow-x-auto" style="max-height: 250px; font-family: monospace;">{{ bridgeLogs.join('\n') }}</pre>
+      </v-card>
+    </section>
+
     <!-- General App Info -->
     <section class="mt-4">
       <BaseCardSectionTitle
@@ -232,6 +360,7 @@
 <script setup lang="ts">
 import type { TranslateResult } from "vue-i18n";
 import { useAdminApi, useUserApi } from "~/composables/api";
+import { useRequests } from "~/composables/api/api-client";
 import { validators } from "~/composables/use-validators";
 import { useAsyncKey } from "~/composables/use-utils";
 import type { CheckAppConfig } from "~/lib/api/types/admin";
@@ -353,6 +482,119 @@ const simpleChecks = computed<SimpleCheck[]>(() => {
   ];
   return data;
 });
+const requests = useRequests();
+
+const firebaseForm = ref({
+  enabled: false,
+  sync_strategy: "Hybrid Sync (LAN + Cloud Fallback)",
+  mealie_host_url: "http://localhost:9925",
+  credentials_json: ""
+});
+
+const syncStatus = ref({
+  sync_worker_status: "offline",
+  firebase_auth_status: false,
+  firestore_db_status: false,
+  mealie_api_status: true,
+  last_heartbeat: null,
+  recipe_count: 0,
+  shopping_list_count: 0,
+  meal_plan_count: 0
+});
+
+const testResult = ref({
+  tested: false,
+  success: false,
+  error: ""
+});
+
+const bridgeLogs = ref<string[]>([]);
+
+async function loadFirebaseSettings() {
+  try {
+    const { data } = await requests.get<any>("/api/admin/settings/firebase-bridge");
+    if (data) {
+      firebaseForm.value.enabled = data.enabled;
+      firebaseForm.value.sync_strategy = data.sync_strategy;
+      firebaseForm.value.mealie_host_url = data.mealie_host_url;
+    }
+  } catch (err) {
+    console.error("Failed to load Firebase settings", err);
+  }
+}
+
+async function fetchStatus() {
+  try {
+    const { data } = await requests.get<any>("/api/admin/settings/firebase-bridge/status");
+    if (data) {
+      syncStatus.value = data;
+    }
+  } catch (err) {
+    console.error("Failed to load sync worker status", err);
+  }
+}
+
+async function fetchLogs() {
+  try {
+    const { data } = await requests.get<string[]>("/api/admin/settings/firebase-bridge/logs");
+    if (data) {
+      bridgeLogs.value = data;
+    }
+  } catch (err) {
+    console.error("Failed to fetch logs", err);
+  }
+}
+
+async function saveFirebaseSettings() {
+  state.saving = true;
+  try {
+    await requests.post("/api/admin/settings/firebase-bridge", firebaseForm.value);
+    await loadFirebaseSettings();
+    await fetchStatus();
+  } catch (err: any) {
+    console.error("Failed to save settings", err);
+  } finally {
+    state.saving = false;
+  }
+}
+
+async function testFirebaseCredentials() {
+  state.testing = true;
+  testResult.value.tested = false;
+  try {
+    const { data } = await requests.post<any>("/api/admin/settings/firebase-bridge/test", {
+      credentials_json: firebaseForm.value.credentials_json
+    });
+    if (data) {
+      testResult.value.success = data.success;
+      testResult.value.error = data.error || "";
+    }
+  } catch (err: any) {
+    testResult.value.success = false;
+    testResult.value.error = err.message || "Request failed";
+  } finally {
+    testResult.value.tested = true;
+    state.testing = false;
+  }
+}
+
+async function triggerSync() {
+  state.syncing = true;
+  try {
+    await requests.post("/api/admin/settings/firebase-bridge/sync");
+  } catch (err) {
+    console.error("Failed to trigger sync", err);
+  } finally {
+    state.syncing = false;
+  }
+}
+
+onMounted(async () => {
+  await loadFirebaseSettings();
+  await fetchStatus();
+  await fetchLogs();
+});
+
 async function testEmail() {
   state.loading = true;
   state.tested = false;

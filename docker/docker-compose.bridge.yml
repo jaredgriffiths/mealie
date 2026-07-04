@@ -8,8 +8,12 @@ services:
     environment:
       - MEALIE_API_URL=http://mealie:9000
       - MEALIE_API_TOKEN=${MEALIE_API_TOKEN}
-      - FIREBASE_SERVICE_ACCOUNT_JSON=/app/secrets/firebase_service_account.json
+      - FIREBASE_SERVICE_ACCOUNT_JSON=/app/data/firebase_service_account.json
     volumes:
-      - ../.secrets/:/app/secrets/:ro
+      - mealie-data:/app/data/
     depends_on:
       - mealie
+
+volumes:
+  mealie-data:
+    external: true
