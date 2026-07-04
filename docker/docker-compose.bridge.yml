@@ -1,0 +1,15 @@
+services:
+  sync-worker:
+    container_name: mealie-firebase-bridge
+    build:
+      context: ../
+      dockerfile: ./services/sync-worker/Dockerfile
+    restart: always
+    environment:
+      - MEALIE_API_URL=http://mealie:9000
+      - MEALIE_API_TOKEN=${MEALIE_API_TOKEN}
+      - FIREBASE_SERVICE_ACCOUNT_JSON=/app/secrets/firebase_service_account.json
+    volumes:
+      - ../.secrets/:/app/secrets/:ro
+    depends_on:
+      - mealie

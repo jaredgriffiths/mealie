@@ -9,6 +9,7 @@
 docs/site/
 *temp/*
 .secret
+.secrets/
 frontend/dist/
 frontend/.output/*
 frontend/.yarn/*
