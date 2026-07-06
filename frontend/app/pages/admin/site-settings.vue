@@ -169,12 +169,12 @@
           <v-col cols="12" md="6">
             <v-list-item title="Sync Worker Status">
               <template #prepend>
-                <v-icon :color="syncStatus.sync_worker_status === 'online' ? 'success' : 'error'">
-                  {{ syncStatus.sync_worker_status === 'online' ? $globals.icons.checkboxMarkedCircle : $globals.icons.alertCircle }}
+                <v-icon :color="syncStatus.syncWorkerStatus === 'online' ? 'success' : 'error'">
+                  {{ syncStatus.syncWorkerStatus === 'online' ? $globals.icons.checkboxMarkedCircle : $globals.icons.alertCircle }}
                 </v-icon>
               </template>
               <v-list-item-subtitle>
-                {{ syncStatus.sync_worker_status.toUpperCase() }}
+                {{ (syncStatus.syncWorkerStatus || 'offline').toUpperCase() }}
               </v-list-item-subtitle>
             </v-list-item>
           </v-col>
@@ -207,7 +207,7 @@
           </v-col>
           <v-col cols="12" md="6">
             <v-select
-              v-model="firebaseForm.sync_strategy"
+              v-model="firebaseForm.syncStrategy"
               :items="['Hybrid Sync (LAN + Cloud Fallback)', 'LAN-Only (No Cloud)']"
               label="Sync Strategy"
               density="comfortable"
@@ -216,14 +216,14 @@
         </v-row>
 
         <v-text-field
-          v-model="firebaseForm.mealie_host_url"
+          v-model="firebaseForm.mealieHostUrl"
           label="Mealie Host URL (For LAN Mode)"
           variant="outlined"
           placeholder="http://192.168.50.107:9925"
         />
 
         <v-textarea
-          v-model="firebaseForm.credentials_json"
+          v-model="firebaseForm.credentialsJson"
           label="Firebase Service Account Private Key JSON"
           variant="outlined"
           rows="5"
@@ -251,19 +251,19 @@
         <v-row>
           <v-col cols="4">
             <v-card variant="tonal" class="pa-3 text-center">
-              <div class="text-h6">{{ syncStatus.recipe_count }}</div>
+              <div class="text-h6">{{ syncStatus.recipeCount }}</div>
               <div class="text-caption">Recipes</div>
             </v-card>
           </v-col>
           <v-col cols="4">
             <v-card variant="tonal" class="pa-3 text-center">
-              <div class="text-h6">{{ syncStatus.shopping_list_count }}</div>
+              <div class="text-h6">{{ syncStatus.shoppingListCount }}</div>
               <div class="text-caption">Shopping Lists</div>
             </v-card>
           </v-col>
           <v-col cols="4">
             <v-card variant="tonal" class="pa-3 text-center">
-              <div class="text-h6">{{ syncStatus.meal_plan_count }}</div>
+              <div class="text-h6">{{ syncStatus.mealPlanCount }}</div>
               <div class="text-caption">Meal Plans</div>
             </v-card>
           </v-col>
@@ -486,20 +486,20 @@ const requests = useRequests();
 
 const firebaseForm = ref({
   enabled: false,
-  sync_strategy: "Hybrid Sync (LAN + Cloud Fallback)",
-  mealie_host_url: "http://localhost:9925",
-  credentials_json: ""
+  syncStrategy: "Hybrid Sync (LAN + Cloud Fallback)",
+  mealieHostUrl: "http://localhost:9925",
+  credentialsJson: ""
 });
 
 const syncStatus = ref({
-  sync_worker_status: "offline",
-  firebase_auth_status: false,
-  firestore_db_status: false,
-  mealie_api_status: true,
-  last_heartbeat: null,
-  recipe_count: 0,
-  shopping_list_count: 0,
-  meal_plan_count: 0
+  syncWorkerStatus: "offline",
+  firebaseAuthStatus: false,
+  firestoreDbStatus: false,
+  mealieApiStatus: true,
+  lastHeartbeat: null,
+  recipeCount: 0,
+  shoppingListCount: 0,
+  mealPlanCount: 0
 });
 
 const testResult = ref({
@@ -515,8 +515,8 @@ async function loadFirebaseSettings() {
     const { data } = await requests.get<any>("/api/admin/settings/firebase-bridge");
     if (data) {
       firebaseForm.value.enabled = data.enabled;
-      firebaseForm.value.sync_strategy = data.sync_strategy;
-      firebaseForm.value.mealie_host_url = data.mealie_host_url;
+      firebaseForm.value.syncStrategy = data.syncStrategy;
+      firebaseForm.value.mealieHostUrl = data.mealieHostUrl;
     }
   } catch (err) {
     console.error("Failed to load Firebase settings", err);
@@ -563,7 +563,7 @@ async function testFirebaseCredentials() {
   testResult.value.tested = false;
   try {
     const { data } = await requests.post<any>("/api/admin/settings/firebase-bridge/test", {
-      credentials_json: firebaseForm.value.credentials_json
+      credentialsJson: firebaseForm.value.credentialsJson
     });
     if (data) {
       testResult.value.success = data.success;

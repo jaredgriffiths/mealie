@@ -30,5 +30,9 @@ This file defines the project-specific rules, guidelines, and behavioral constra
 - **Docker Publishing (Dev):** Use the root script [dev-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/dev-publish.sh) to checkout `dev`, commit/push changes, and build the Docker image locally on the localhost Docker daemon tagged as `mealie:dev`.
 - **Docker Publishing (Live):** Use the root script [live-publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/live-publish.sh) to merge `dev` into `mealie-next` and push to origin, which automatically triggers the GitHub Actions workflow to build and publish the production image to GitHub Container Registry (`ghcr.io/<username>/mealie:latest`).
 
+## 🤖 AI Vibe Coding Reference Maps
+To keep the AI pair-programming efficiency high and optimize token usage, we maintain reference files under `.agents/`:
+- **API reference maps**: [.agents/api_reference_map.json](file:///home/quok/Antigravity/mealie/mealie-1/.agents/api_reference_map.json)
+- **Repository mapping guides**: [.agents/repository_mapping.md](file:///home/quok/Antigravity/mealie/mealie-1/.agents/repository_mapping.md)
 
-
+**Rule for Agents**: Whenever you create or modify backend routes, API controllers, schemas, or DB repositories, you **must** update the corresponding mapping files under `.agents/` as part of your verification/walkthrough steps.

@@ -1,0 +1,22 @@
+{
+  "api_prefix": "/api",
+  "admin_routes": {
+    "firebase_bridge": {
+      "path": "/admin/settings/firebase-bridge",
+      "controller_file": "mealie/routes/admin/admin_firebase_bridge.py",
+      "endpoints": [
+        { "method": "GET", "path": "", "desc": "Load Firebase bridge settings", "response_model": "FirebaseBridgeSettings" },
+        { "method": "POST", "path": "", "desc": "Save Firebase bridge settings", "request_model": "FirebaseBridgeSave" },
+        { "method": "POST", "path": "/test", "desc": "Test credentials format validation", "request_model": "FirebaseBridgeTestRequest", "response_model": "FirebaseBridgeTestResponse" },
+        { "method": "GET", "path": "/logs", "desc": "Fetch last 50 lines of worker daemon logs", "response_model": "list[str]" },
+        { "method": "POST", "path": "/sync", "desc": "Trigger immediate manual reconciliation sync" },
+        { "method": "GET", "path": "/status", "desc": "Retrieve runtime sync metrics & sidecar statuses", "response_model": "FirebaseBridgeStatus" }
+      ]
+    }
+  },
+  "models": {
+    "FirebaseBridgeSettings": { "schema_file": "mealie/schema/admin/firebase_bridge.py", "fields": ["enabled", "syncStrategy", "mealieHostUrl", "credentialsUploaded"] },
+    "FirebaseBridgeSave": { "schema_file": "mealie/schema/admin/firebase_bridge.py", "fields": ["enabled", "syncStrategy", "mealieHostUrl", "credentialsJson"] },
+    "FirebaseBridgeStatus": { "schema_file": "mealie/schema/admin/firebase_bridge.py", "fields": ["syncWorkerStatus", "firebaseAuthStatus", "firestoreDbStatus", "mealieApiStatus", "lastHeartbeat", "recipeCount", "shoppingListCount", "mealPlanCount"] }
+  }
+}

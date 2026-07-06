@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MealieCompanion" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light/dark theme here. -->
+        <item name="colorPrimary">@android:color/holo_green_dark</item>
+    </style>
+</resources>

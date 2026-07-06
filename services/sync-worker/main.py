@@ -7,12 +7,10 @@ interfaces back to Mealie's REST API.
 """
 
 import os
-import time
+import asyncio
 import logging
-import hashlib
 import json
 from datetime import datetime
-from threading import Thread, Event
 from typing import Dict, Any, Optional
 import httpx
 import firebase_admin
@@ -27,6 +25,7 @@ MEALIE_API_TOKEN = os.getenv("MEALIE_API_TOKEN")
 FIREBASE_KEY_PATH = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "/app/data/firebase_service_account.json")
 CONFIG_PATH = "/app/data/firebase_bridge_config.json"
 LOG_FILE_PATH = "/app/data/sync_worker.log"
+HEARTBEAT_FILE_PATH = "/app/data/sync_worker_heartbeat.json"
 
 # Configure structured logging (to stdout and shared volume log file)
 logger = logging.getLogger("sync-worker")
@@ -47,7 +46,7 @@ try:
 except Exception:
     pass
 
-# HTTPX Client configuration for local Mealie calls
+# HTTPX Client headers configuration
 MEALIE_HEADERS = {
     "Authorization": f"Bearer {MEALIE_API_TOKEN}",
     "Content-Type": "application/json"
@@ -60,15 +59,13 @@ class MealieSyncWorker:
     def __init__(self) -> None:
         """Initialize Sync Worker configurations, client state, and events."""
         self.db: Optional[firestore.client.Client] = None
-        self.http_client = httpx.Client(base_url=MEALIE_API_URL, headers=MEALIE_HEADERS, timeout=10.0)
-        self.shutdown_event = Event()
-        self.heartbeat_thread: Optional[Thread] = None
-        self.config_checker_thread: Optional[Thread] = None
+        self.async_http_client = httpx.AsyncClient(base_url=MEALIE_API_URL, headers=MEALIE_HEADERS, timeout=10.0)
         self.is_enabled = False
+        self.loop = None
 
-    def check_config_loop(self) -> None:
+    async def check_config_loop(self) -> None:
         """Periodically check the local bridge config file to update status dynamically."""
-        while not self.shutdown_event.wait(10):  # Check every 10 seconds
+        while True:
             if os.path.exists(CONFIG_PATH):
                 try:
                     with open(CONFIG_PATH) as f:
@@ -79,6 +76,7 @@ class MealieSyncWorker:
                             logger.info(f"Sync Worker enabled state toggled to: {self.is_enabled}")
                 except Exception as e:
                     logger.debug(f"Failed to check config file: {e}")
+            await asyncio.sleep(10)
 
     def initialize_firebase(self) -> bool:
         """Initialize Firebase Admin SDK using the local service account key."""
@@ -87,8 +85,12 @@ class MealieSyncWorker:
             return False
 
         try:
-            cred = credentials.Certificate(FIREBASE_KEY_PATH)
-            firebase_admin.initialize_app(cred)
+            try:
+                firebase_admin.get_app()
+            except ValueError:
+                cred = credentials.Certificate(FIREBASE_KEY_PATH)
+                firebase_admin.initialize_app(cred)
+            
             self.db = firestore.client()
             logger.info("Firebase Admin SDK successfully initialized.")
             return True
@@ -96,49 +98,65 @@ class MealieSyncWorker:
             logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
             return False
 
-    def update_heartbeat(self) -> None:
-        """Periodically write a host health status heartbeat document to Firestore."""
-        while not self.shutdown_event.wait(300):  # Run every 5 minutes
-            if not self.is_enabled or not self.db:
-                continue
-
+    async def update_heartbeat(self) -> None:
+        """Periodically write status reports locally and to Firestore."""
+        while True:
+            # 1. Evaluate current health metrics
+            mealie_reachable = False
             try:
-                # Check local Mealie connectivity
-                mealie_reachable = False
-                try:
-                    response = self.http_client.get("/api/users/me")
-                    mealie_reachable = response.status_code == 200
-                except httpx.HTTPError:
-                    pass
+                response = await self.async_http_client.get("/api/users/me")
+                mealie_reachable = response.status_code == 200
+            except Exception:
+                pass
 
-                status_ref = self.db.collection("status").document("sync_worker")
-                status_ref.set({
-                    "last_ping": firestore.SERVER_TIMESTAMP,
-                    "status": "online",
-                    "mealie_reachable": mealie_reachable
-                })
-                logger.debug("Heartbeat status document updated in Firestore.")
+            firebase_auth_status = firebase_admin._apps is not None and len(firebase_admin._apps) > 0
+            firestore_db_status = self.db is not None
+
+            # 2. Write local JSON heartbeat (so the Mealie UI shows "online" instantly)
+            try:
+                heartbeat_data = {
+                    "last_ping": datetime.now().isoformat(),
+                    "status": "online" if self.is_enabled else "disabled",
+                    "mealie_reachable": mealie_reachable,
+                    "firebase_auth_status": firebase_auth_status,
+                    "firestore_db_status": firestore_db_status
+                }
+                with open(HEARTBEAT_FILE_PATH, "w") as f:
+                    json.dump(heartbeat_data, f, indent=2)
             except Exception as e:
-                logger.error(f"Failed to update health heartbeat: {e}")
+                logger.error(f"Failed to write local heartbeat file: {e}")
 
-    def process_incoming_cloud_recipe(self, doc_id: str, cloud_data: Dict[str, Any]) -> None:
-        """Process a recipe updated in the cloud and sync back to local Mealie if applicable.
+            # 3. Write cloud heartbeat to Firestore (if enabled and initialized)
+            if self.is_enabled and self.db:
+                try:
+                    # Execute blocking firestore call in the executor pool to prevent blocking the event loop
+                    await asyncio.to_thread(self._write_firestore_heartbeat, mealie_reachable)
+                except Exception as e:
+                    logger.debug(f"Failed to update cloud heartbeat in Firestore: {e}")
 
-        Args:
-            doc_id: The Firestore document identifier (matches Mealie recipe UUID).
-            cloud_data: The document data dictionary retrieved from Firestore.
-        """
-        # Do not run if disabled
+            await asyncio.sleep(15)
+
+    def _write_firestore_heartbeat(self, mealie_reachable: bool) -> None:
+        """Internal synchronous helper for writing heartbeat to Firestore."""
+        if not self.db:
+            return
+        status_ref = self.db.collection("status").document("sync_worker")
+        status_ref.set({
+            "last_ping": firestore.SERVER_TIMESTAMP,
+            "status": "online",
+            "mealie_reachable": mealie_reachable
+        })
+
+    async def process_incoming_cloud_recipe(self, doc_id: str, cloud_data: Dict[str, Any]) -> None:
+        """Process a recipe updated in the cloud and sync back to local Mealie if applicable."""
         if not self.is_enabled:
             return
 
-        # Loop Prevention: Skip updates originated by this worker itself
         if cloud_data.get("updated_by") == "sync_worker":
             return
 
         logger.info(f"Incoming cloud modification detected for recipe: {doc_id}")
 
-        # Defensive Parsing / Schema Resilience
         recipe_name = cloud_data.get("name", "Unnamed Recipe")
         cloud_updated_str = cloud_data.get("updated_at")
 
@@ -152,15 +170,13 @@ class MealieSyncWorker:
             logger.error(f"Invalid timestamp format in cloud recipe {doc_id}: {cloud_updated_str}")
             return
 
-        # Fetch current local Mealie recipe status to resolve conflicts
         try:
-            response = self.http_client.get(f"/api/recipes/{doc_id}")
+            response = await self.async_http_client.get(f"/api/recipes/{doc_id}")
             if response.status_code == 200:
                 local_data = response.json()
                 local_updated_str = local_data.get("updated_at", "1970-01-01T00:00:00Z")
                 local_updated = datetime.fromisoformat(local_updated_str.replace("Z", "+00:00"))
 
-                # Last-Write-Wins (LWW) Conflict Resolution
                 if local_updated >= cloud_updated:
                     logger.info(f"Local recipe {doc_id} is newer or equal. Skipping write back.")
                     return
@@ -173,7 +189,6 @@ class MealieSyncWorker:
             logger.error(f"Error communicating with local Mealie API: {e}")
             return
 
-        # Construct Mealie payload format (mapping from our Firestore schema defensively)
         mealie_payload = {
             "name": recipe_name,
             "description": cloud_data.get("description", ""),
@@ -181,16 +196,15 @@ class MealieSyncWorker:
             "recipeInstructions": [{"text": step} for step in cloud_data.get("steps", [])],
         }
 
-        # Write updates back to local Mealie
         try:
             if response.status_code == 404:
-                post_resp = self.http_client.post("/api/recipes", json=mealie_payload)
+                post_resp = await self.async_http_client.post("/api/recipes", json=mealie_payload)
                 if post_resp.status_code == 201:
                     logger.info(f"Successfully created recipe {doc_id} locally.")
                 else:
                     logger.error(f"Failed to create recipe locally. Status: {post_resp.status_code}")
             else:
-                put_resp = self.http_client.put(f"/api/recipes/{doc_id}", json=mealie_payload)
+                put_resp = await self.async_http_client.put(f"/api/recipes/{doc_id}", json=mealie_payload)
                 if put_resp.status_code == 200:
                     logger.info(f"Successfully updated recipe {doc_id} locally.")
                 else:
@@ -198,76 +212,66 @@ class MealieSyncWorker:
         except httpx.HTTPError as e:
             logger.error(f"Failed to push updates back to Mealie REST API: {e}")
 
-    def start_listeners(self) -> None:
-        """Register real-time snapshot listeners for Firebase Firestore collections.
+    def on_recipe_snapshot(self, col_snapshot, changes, read_time) -> None:
+        """Snapshot listener callback executed by firestore thread pool."""
+        for doc in col_snapshot:
+            # Safely schedule the asynchronous process loop onto the main event loop
+            asyncio.run_coroutine_threadsafe(
+                self.process_incoming_cloud_recipe(doc.id, doc.to_dict()),
+                self.loop
+            )
 
-        Includes an outer loop to recover and reconnect on network failures.
-        """
-        while not self.shutdown_event.is_set():
+    async def start_listeners(self) -> None:
+        """Register real-time snapshot listeners with automatic reconnection loops."""
+        while True:
             if not self.is_enabled:
-                time.sleep(5)
+                await asyncio.sleep(5)
                 continue
 
             if not self.db:
                 if not self.initialize_firebase():
-                    time.sleep(15)
+                    await asyncio.sleep(15)
                     continue
 
             logger.info("Setting up real-time snapshot listeners...")
-
-            def on_recipe_snapshot(col_snapshot, changes, read_time) -> None:
-                for doc in col_snapshot:
-                    try:
-                        self.process_incoming_cloud_recipe(doc.id, doc.to_dict())
-                    except Exception as ex:
-                        logger.error(f"Failed processing snapshot document {doc.id}: {ex}")
-
             recipes_ref = self.db.collection("recipes")
             
             try:
                 logger.info("Registering snapshot listener on 'recipes'...")
-                recipes_watch = recipes_ref.on_snapshot(on_recipe_snapshot)
+                # Start listener thread in the SDK
+                recipes_watch = recipes_ref.on_snapshot(self.on_recipe_snapshot)
 
-                # Keep the thread alive while listening
-                while not self.shutdown_event.wait(10):
-                    if not self.is_enabled:
-                        logger.info("Sync Worker disabled. Unsubscribing listeners.")
-                        break
+                # Keep listener active while enabled
+                while self.is_enabled:
+                    await asyncio.sleep(10)
                 
                 recipes_watch.unsubscribe()
             except Exception as e:
                 logger.error(f"Firestore snapshot listener encountered an error: {e}. Reconnecting in 15 seconds...")
-                time.sleep(15)
+                await asyncio.sleep(15)
 
-    def start(self) -> None:
-        """Start the sync worker daemon, config loop, heartbeat updates, and snapshot listeners."""
-        logger.info("Starting Sync Worker daemon...")
+    async def run(self) -> None:
+        """Run all concurrent worker event loops under the asyncio event loop."""
+        logger.info("Starting Sync Worker daemon (asyncio)...")
+        self.loop = asyncio.get_running_loop()
         
-        # Start config checker thread
-        self.config_checker_thread = Thread(target=self.check_config_loop, daemon=True)
-        self.config_checker_thread.start()
+        # Start config checker, heartbeat, and listener loops concurrently
+        await asyncio.gather(
+            self.check_config_loop(),
+            self.update_heartbeat(),
+            self.start_listeners()
+        )
 
-        # Start health check heartbeat thread
-        self.heartbeat_thread = Thread(target=self.update_heartbeat, daemon=True)
-        self.heartbeat_thread.start()
-
-        # Start snapshot listener blocking loop
-        self.start_listeners()
-
-    def stop(self) -> None:
-        """Stop the sync worker and clean up active threads."""
+    async def shutdown(self) -> None:
+        """Shutdown helper closing asynchronous http connections cleanly."""
         logger.info("Shutting down Sync Worker...")
-        self.shutdown_event.set()
-        if self.heartbeat_thread:
-            self.heartbeat_thread.join()
-        if self.config_checker_thread:
-            self.config_checker_thread.join()
+        await self.async_http_client.aclose()
         logger.info("Sync Worker successfully stopped.")
 
 
 if __name__ == "__main__":
     worker = MealieSyncWorker()
     try:
-        worker.start()
-    except KeyboardInterrupt:
-        worker.stop()
+        asyncio.run(worker.run())
+    except (KeyboardInterrupt, SystemExit):
+        asyncio.run(worker.shutdown())

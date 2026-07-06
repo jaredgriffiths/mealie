@@ -84,9 +84,9 @@ class AdminFirebaseBridgeController(BaseAdminController):
                 pass
 
         # Query local counts
-        recipe_count = self.repos.recipes.count()
-        shopping_list_count = self.repos.shopping_lists.count()
-        meal_plan_count = self.repos.meal_plans.count()
+        recipe_count = self.repos.recipes.count_all()
+        shopping_list_count = self.repos.group_shopping_lists.count_all()
+        meal_plan_count = self.repos.meals.count_all()
 
         return FirebaseBridgeStatus(
             sync_worker_status=sync_worker_status if settings.enabled else "disabled",

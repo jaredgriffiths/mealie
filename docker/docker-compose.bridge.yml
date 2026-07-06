@@ -11,9 +11,19 @@ services:
       - FIREBASE_SERVICE_ACCOUNT_JSON=/app/data/firebase_service_account.json
     volumes:
       - mealie-data:/app/data/
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import json, datetime; data = json.load(open(\"/app/data/sync_worker_heartbeat.json\")); ping = datetime.datetime.fromisoformat(data[\"last_ping\"]); diff = (datetime.datetime.now() - ping).total_seconds(); exit(0 if diff < 120 else 1)'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       - mealie
 
 volumes:
   mealie-data:
-    external: true
