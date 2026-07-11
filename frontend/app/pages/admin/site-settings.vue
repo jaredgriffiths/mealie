@@ -247,24 +247,38 @@
 
         <v-divider class="my-6" />
 
-        <h4 class="mb-2">Local Database Cache Sync Statistics</h4>
+        <h4 class="mb-2">
+          Local Database Cache Sync Statistics
+        </h4>
         <v-row>
           <v-col cols="4">
             <v-card variant="tonal" class="pa-3 text-center">
-              <div class="text-h6">{{ syncStatus.recipeCount }}</div>
-              <div class="text-caption">Recipes</div>
+              <div class="text-h6">
+                {{ syncStatus.recipeCount }}
+              </div>
+              <div class="text-caption">
+                Recipes
+              </div>
             </v-card>
           </v-col>
           <v-col cols="4">
             <v-card variant="tonal" class="pa-3 text-center">
-              <div class="text-h6">{{ syncStatus.shoppingListCount }}</div>
-              <div class="text-caption">Shopping Lists</div>
+              <div class="text-h6">
+                {{ syncStatus.shoppingListCount }}
+              </div>
+              <div class="text-caption">
+                Shopping Lists
+              </div>
             </v-card>
           </v-col>
           <v-col cols="4">
             <v-card variant="tonal" class="pa-3 text-center">
-              <div class="text-h6">{{ syncStatus.mealPlanCount }}</div>
-              <div class="text-caption">Meal Plans</div>
+              <div class="text-h6">
+                {{ syncStatus.mealPlanCount }}
+              </div>
+              <div class="text-caption">
+                Meal Plans
+              </div>
             </v-card>
           </v-col>
         </v-row>
@@ -488,7 +502,7 @@ const firebaseForm = ref({
   enabled: false,
   syncStrategy: "Hybrid Sync (LAN + Cloud Fallback)",
   mealieHostUrl: "http://localhost:9925",
-  credentialsJson: ""
+  credentialsJson: "",
 });
 
 const syncStatus = ref({
@@ -499,13 +513,13 @@ const syncStatus = ref({
   lastHeartbeat: null,
   recipeCount: 0,
   shoppingListCount: 0,
-  mealPlanCount: 0
+  mealPlanCount: 0,
 });
 
 const testResult = ref({
   tested: false,
   success: false,
-  error: ""
+  error: "",
 });
 
 const bridgeLogs = ref<string[]>([]);
@@ -518,7 +532,8 @@ async function loadFirebaseSettings() {
       firebaseForm.value.syncStrategy = data.syncStrategy;
       firebaseForm.value.mealieHostUrl = data.mealieHostUrl;
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error("Failed to load Firebase settings", err);
   }
 }
@@ -529,7 +544,8 @@ async function fetchStatus() {
     if (data) {
       syncStatus.value = data;
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error("Failed to load sync worker status", err);
   }
 }
@@ -540,7 +556,8 @@ async function fetchLogs() {
     if (data) {
       bridgeLogs.value = data;
     }
-  } catch (err) {
+  }
+  catch (err) {
     console.error("Failed to fetch logs", err);
   }
 }
@@ -551,9 +568,11 @@ async function saveFirebaseSettings() {
     await requests.post("/api/admin/settings/firebase-bridge", firebaseForm.value);
     await loadFirebaseSettings();
     await fetchStatus();
-  } catch (err: any) {
+  }
+  catch (err: any) {
     console.error("Failed to save settings", err);
-  } finally {
+  }
+  finally {
     state.saving = false;
   }
 }
@@ -563,16 +582,18 @@ async function testFirebaseCredentials() {
   testResult.value.tested = false;
   try {
     const { data } = await requests.post<any>("/api/admin/settings/firebase-bridge/test", {
-      credentialsJson: firebaseForm.value.credentialsJson
+      credentialsJson: firebaseForm.value.credentialsJson,
     });
     if (data) {
       testResult.value.success = data.success;
       testResult.value.error = data.error || "";
     }
-  } catch (err: any) {
+  }
+  catch (err: any) {
     testResult.value.success = false;
     testResult.value.error = err.message || "Request failed";
-  } finally {
+  }
+  finally {
     testResult.value.tested = true;
     state.testing = false;
   }
@@ -582,9 +603,11 @@ async function triggerSync() {
   state.syncing = true;
   try {
     await requests.post("/api/admin/settings/firebase-bridge/sync");
-  } catch (err) {
+  }
+  catch (err) {
     console.error("Failed to trigger sync", err);
-  } finally {
+  }
+  finally {
     state.syncing = false;
   }
 }

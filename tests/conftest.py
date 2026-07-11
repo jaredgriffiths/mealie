@@ -20,6 +20,12 @@ mp = MonkeyPatch()
 mp.setenv("PRODUCTION", "True")
 mp.setenv("TESTING", "True")
 mp.setenv("ALLOW_SIGNUP", "True")
+import os
+import time
+os.environ["TZ"] = "UTC"
+with contextlib.suppress(AttributeError):
+    time.tzset()
+
 from pathlib import Path
 
 from fastapi.testclient import TestClient
