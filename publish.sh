@@ -58,14 +58,18 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     fi
 fi
 
-# 3. Docker Build & Start (Official LAN environment)
-echo "Starting local docker-compose environment..."
-docker compose -f docker/docker-compose.yml down
-docker compose -f docker/docker-compose.yml up --build -d
+# 3. Docker Build & Push to GHCR
+echo "Building Docker image locally..."
+docker compose -f docker/docker-compose.yml build mealie
+
+echo "Pushing Docker image to GitHub Container Registry (ghcr.io)..."
+docker push ghcr.io/jaredgriffiths/mealie:latest
 
 echo "============================================="
-echo "🚀 Official LAN Environment is UP!"
-echo "Web app URL: https://192.168.50.107:9925"
-echo "To view logs: docker compose -f docker/docker-compose.yml logs -f"
-echo "To stop app:  docker compose -f docker/docker-compose.yml stop"
+echo "✅ Image successfully built and pushed to GHCR!"
+echo "Image: ghcr.io/jaredgriffiths/mealie:latest"
+echo ""
+echo "Next step: Pull the updated image and restart the containers"
+echo "on your server (192.168.50.107):"
+echo "  docker compose pull && docker compose up -d"
 echo "============================================="
