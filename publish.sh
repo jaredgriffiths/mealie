@@ -65,7 +65,7 @@ docker compose -f docker/docker-compose.yml up --build -d
 
 echo "============================================="
 echo "🚀 Official LAN Environment is UP!"
-echo "Web app URL: http://192.168.50.107:9925"
+echo "Web app URL: https://192.168.50.107:9925"
 echo "To view logs: docker compose -f docker/docker-compose.yml logs -f"
 echo "To stop app:  docker compose -f docker/docker-compose.yml stop"
 echo "============================================="
