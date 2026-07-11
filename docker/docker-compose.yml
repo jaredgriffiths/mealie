@@ -28,9 +28,8 @@ services:
     restart: always
     ports:
       - "9925:443"
-    environment:
-      - MEALIE_IP=192.168.50.107
-    command: caddy reverse-proxy --from https://192.168.50.107:443 --to http://mealie:9000
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
 
 volumes:
   mealie-data:
