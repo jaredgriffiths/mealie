@@ -1,7 +1,7 @@
 services:
   mealie:
     container_name: mealie
-    image: mealie:local
+    image: ghcr.io/jaredgriffiths/mealie:latest
     build:
       context: ../
       target: production

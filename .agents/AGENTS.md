@@ -27,7 +27,7 @@ This file defines the project-specific rules, guidelines, and behavioral constra
 
 ### CI/CD & Deployments
 - **Branch Management:** Always work on and commit to the `main` branch.
-- **Docker Publishing:** Use the root script [publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/publish.sh) to stage/commit/push changes on `main` and build/deploy the Docker image locally (tagged as `mealie:local`) to run on the local LAN.
+- **Docker Publishing:** Use the root script [publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/publish.sh) to stage/commit/push changes on `main` and build/deploy the Docker image locally (tagged as `ghcr.io/jaredgriffiths/mealie:latest`) to run on the local LAN.
 
 ## 🤖 AI Vibe Coding Reference Maps
 To keep the AI pair-programming efficiency high and optimize token usage, we maintain reference files under `.agents/`:
