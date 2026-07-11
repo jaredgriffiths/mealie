@@ -58,14 +58,14 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     fi
 fi
 
-# 3. Local Docker Build & Start (Development build from workspace)
+# 3. Docker Build & Start (Official LAN environment)
 echo "Starting local docker-compose environment..."
 docker compose -f docker/docker-compose.yml down
 docker compose -f docker/docker-compose.yml up --build -d
 
 echo "============================================="
-echo "🚀 Local LAN Environment is UP!"
-echo "Web app URL: http://localhost:9091"
+echo "🚀 Official LAN Environment is UP!"
+echo "Web app URL: http://192.168.50.107:9925"
 echo "To view logs: docker compose -f docker/docker-compose.yml logs -f"
 echo "To stop app:  docker compose -f docker/docker-compose.yml stop"
 echo "============================================="

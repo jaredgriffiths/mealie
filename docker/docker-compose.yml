@@ -7,32 +7,17 @@ services:
       target: production
       dockerfile: ./docker/Dockerfile
     restart: always
-    volumes:
-      - mealie-data:/app/data/
     ports:
-      - 9091:9000
+      - "9925:9000"
+    deploy:
+      resources:
+        limits:
+          memory: 1000M
+    volumes:
+      - /srv/dev-disk-by-uuid-9800de14-df33-4684-904e-16c9c372cae9/media/mealie/data:/app/data/
     environment:
       ALLOW_SIGNUP: "false"
-      LOG_LEVEL: "DEBUG"
-
-      DB_ENGINE: sqlite # Optional: 'sqlite', 'postgres'
-      # =====================================
-      # Postgres Config
-      POSTGRES_USER: mealie
-      POSTGRES_PASSWORD: mealie
-      POSTGRES_SERVER: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: mealie
-      # =====================================
-      # Email Configuration
-      # SMTP_HOST=
-      # SMTP_PORT=587
-      # SMTP_FROM_NAME=Mealie
-      # SMTP_AUTH_STRATEGY=TLS # Options: 'TLS', 'SSL', 'NONE'
-      # SMTP_FROM_EMAIL=
-      # SMTP_USER=
-      # SMTP_PASSWORD=
-
-volumes:
-  mealie-data:
-    driver: local
+      PUID: 1000
+      PGID: 100
+      TZ: Australia/Victoria
+      BASE_URL: http://192.168.50.107:9925
