@@ -1,3 +1,7 @@
+{
+    default_sni 192.168.50.107
+}
+
 192.168.50.107 {
     tls internal
     reverse_proxy mealie:9000
