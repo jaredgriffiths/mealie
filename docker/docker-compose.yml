@@ -1,7 +1,7 @@
 services:
   mealie:
     container_name: mealie
-    image: mealie:dev
+    image: mealie:local
     build:
       context: ../
       target: production
