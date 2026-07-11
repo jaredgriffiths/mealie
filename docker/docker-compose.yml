@@ -2,10 +2,7 @@ services:
   mealie:
     container_name: mealie
     image: ghcr.io/jaredgriffiths/mealie:latest
-    build:
-      context: ../
-      target: production
-      dockerfile: ./docker/Dockerfile
+
     restart: always
     expose:
       - "9000"
