@@ -7,8 +7,8 @@ services:
       target: production
       dockerfile: ./docker/Dockerfile
     restart: always
-    ports:
-      - "9925:9000"
+    expose:
+      - "9000"
     deploy:
       resources:
         limits:
@@ -20,4 +20,17 @@ services:
       PUID: 1000
       PGID: 100
       TZ: Australia/Victoria
-      BASE_URL: http://192.168.50.107:9925
+      BASE_URL: https://192.168.50.107:9925
+
+  caddy:
+    image: caddy:latest
+    container_name: mealie-proxy
+    restart: always
+    ports:
+      - "9925:443"
+    environment:
+      - MEALIE_IP=192.168.50.107
+    command: caddy reverse-proxy --from https://192.168.50.107:443 --to http://mealie:9000
+
+volumes:
+  mealie-data:
