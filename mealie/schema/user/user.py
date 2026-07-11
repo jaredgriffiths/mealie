@@ -227,7 +227,7 @@ class PrivateUser(UserOut):
         if self.locked_at is None:
             return False
 
-        lockout_expires_at = self.locked_at + timedelta(hours=get_app_settings().SECURITY_USER_LOCKOUT_TIME)
+        lockout_expires_at = self.locked_at + timedelta(minutes=get_app_settings().SECURITY_USER_LOCKOUT_TIME)
         return lockout_expires_at > datetime.now(UTC)
 
     def directory(self) -> Path:

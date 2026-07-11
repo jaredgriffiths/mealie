@@ -24,9 +24,12 @@ class NetworkObserver @Inject constructor(
     private val _isLANReachable = MutableStateFlow(false)
     val isLANReachable: StateFlow<Boolean> = _isLANReachable
 
-    private var mealieHostUrl: String = "http://10.0.2.2:9925" // Default Android Emulator host IP targeting localhost port 9925
+    private var mealieHostUrl: String = "http://10.0.2.2:9091" // Default Android Emulator host IP targeting localhost port 9091
+
+    private val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
     init {
+        checkMealieReachability()
         connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 // Trigger connection verify check when network switches
@@ -46,7 +49,7 @@ class NetworkObserver @Inject constructor(
 
     fun checkMealieReachability() {
         // Run network socket checks on Background IO dispatcher
-        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+        scope.launch {
             try {
                 val url = URL(mealieHostUrl)
                 val connection = url.openConnection() as HttpURLConnection
@@ -54,10 +57,13 @@ class NetworkObserver @Inject constructor(
                 connection.readTimeout = 2000
                 connection.requestMethod = "HEAD"
                 val responseCode = connection.responseCode
-                _isLANReachable.value = (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_UNAUTHORIZED)
+                // Any response code between 100 and 599 means the server is reachable and active.
+                // True connection failures will throw an IOException and be caught in the block.
+                _isLANReachable.value = responseCode in 100..599
             } catch (e: Exception) {
                 _isLANReachable.value = false
             }
         }
     }
 }
+

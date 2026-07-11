@@ -37,4 +37,10 @@ class RecipeViewModel @Inject constructor(
             _isRefreshing.value = false
         }
     }
+
+    fun loadRecipeDetails(recipeId: String) {
+        viewModelScope.launch {
+            syncManager.refreshRecipeDetails(recipeId)
+        }
+    }
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -33,7 +34,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onLogoutClick: () -> Unit
 ) {
     val isLANReachable by viewModel.isLANReachable.collectAsState()
     val recipeCount by viewModel.recipeCount.collectAsState()
@@ -43,6 +45,14 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Diagnostics & Settings", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    androidx.compose.material3.IconButton(onClick = onBackClick) {
+                        androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
@@ -154,6 +164,22 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            item { Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) }
+
+            item {
+                Button(
+                    onClick = {
+                        viewModel.logout()
+                        onLogoutClick()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Log Out", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

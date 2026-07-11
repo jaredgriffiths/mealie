@@ -51,6 +51,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,23 +72,32 @@ import io.mealie.companion.ui.shopping.ShoppingListScreen
 import io.mealie.companion.ui.shopping.ShoppingListViewModel
 import io.mealie.companion.ui.theme.MealieCompanionTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import io.mealie.companion.data.local.SessionManager
+import io.mealie.companion.ui.auth.LoginScreen
+import io.mealie.companion.ui.auth.LoginViewModel
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject
+    lateinit var sessionManager: SessionManager
+
     private val recipeViewModel: RecipeViewModel by viewModels()
     private val shoppingListViewModel: ShoppingListViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val loginViewModel: LoginViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MealieCompanionTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+                val hasToken = remember { !sessionManager.getToken().isNullOrEmpty() }
+                var currentScreen by remember { mutableStateOf<Screen>(if (hasToken) Screen.Dashboard else Screen.Login) }
 
                 Scaffold(
                     bottomBar = {
-                        if (currentScreen !is Screen.RecipeDetail) {
+                        if (currentScreen !is Screen.RecipeDetail && currentScreen != Screen.Login) {
                             NavigationBar(
                                 containerColor = MaterialTheme.colorScheme.surface,
                                 tonalElevation = 8.dp
@@ -146,8 +156,18 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                     ) {
                         when (val screen = currentScreen) {
+                            Screen.Login -> {
+                                LoginScreen(
+                                    viewModel = loginViewModel,
+                                    onLoginSuccess = {
+                                        currentScreen = Screen.Dashboard
+                                    }
+                                )
+                            }
                             Screen.Dashboard -> {
                                 DashboardScreen(
+                                    recipeViewModel = recipeViewModel,
+                                    shoppingListViewModel = shoppingListViewModel,
                                     onRecipesClick = { currentScreen = Screen.RecipeList },
                                     onShoppingListsClick = { currentScreen = Screen.ShoppingList },
                                     onSettingsClick = { currentScreen = Screen.Settings }
@@ -165,6 +185,7 @@ class MainActivity : ComponentActivity() {
                                 RecipeDetailScreen(
                                     recipeId = screen.id,
                                     viewModel = recipeViewModel,
+                                    sessionManager = sessionManager,
                                     onBackClick = {
                                         currentScreen = Screen.RecipeList
                                     }
@@ -183,6 +204,9 @@ class MainActivity : ComponentActivity() {
                                     viewModel = settingsViewModel,
                                     onBackClick = {
                                         currentScreen = Screen.Dashboard
+                                    },
+                                    onLogoutClick = {
+                                        currentScreen = Screen.Login
                                     }
                                 )
                             }
@@ -197,10 +221,20 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    recipeViewModel: RecipeViewModel,
+    shoppingListViewModel: ShoppingListViewModel,
     onRecipesClick: () -> Unit,
     onShoppingListsClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    val recipes by recipeViewModel.recipeList.collectAsState()
+    val shoppingLists by shoppingListViewModel.shoppingLists.collectAsState()
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        recipeViewModel.refresh()
+        shoppingListViewModel.refresh()
+    }
+
     Scaffold(
         topBar = {
             Row(
@@ -322,22 +356,22 @@ fun DashboardScreen(
                         item {
                             MealPlanCard(
                                 mealType = "Breakfast",
-                                title = "Oatmeal with Berries",
-                                duration = "15 min"
+                                title = "N/A",
+                                duration = "N/A"
                             )
                         }
                         item {
                             MealPlanCard(
                                 mealType = "Lunch",
-                                title = "Chicken Salad Wrap",
-                                duration = "20 min"
+                                title = "N/A",
+                                duration = "N/A"
                             )
                         }
                         item {
                             MealPlanCard(
                                 mealType = "Dinner",
-                                title = "Spaghetti Carbonara",
-                                duration = "30 min"
+                                title = "N/A",
+                                duration = "N/A"
                             )
                         }
                     }
@@ -353,60 +387,80 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Recipes Grid Item
+                    val recipeCount = recipes.size
                     DashboardSectionCard(
                         title = "Recipes",
-                        subtitle = "Browse\n124 recipes",
+                        subtitle = "Browse\n$recipeCount recipes",
                         icon = Icons.Default.Favorite,
                         onClick = onRecipesClick,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            QuickRecipeItem(name = "Spicy Thai Curry", duration = "15 min")
-                            QuickRecipeItem(name = "Lentil Soup", duration = "15 min")
-                            QuickRecipeItem(name = "Banana Bread", duration = "15 min")
+                            if (recipes.isEmpty()) {
+                                Text("No recipes found", style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                recipes.take(3).forEach { recipe ->
+                                    QuickRecipeItem(name = recipe.name, duration = "15 min")
+                                }
+                            }
                         }
                     }
 
                     // Shopping Lists Grid Item
+                    val firstList = shoppingLists.firstOrNull()
+                    val subtitleText = if (firstList != null) {
+                        "Active Lists:\n${firstList.name}"
+                    } else {
+                        "No active lists"
+                    }
                     DashboardSectionCard(
                         title = "Shopping Lists",
-                        subtitle = "Active Lists:\nWeekly Groceries",
+                        subtitle = subtitleText,
                         icon = Icons.Default.ShoppingCart,
                         onClick = onShoppingListsClick,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                "Weekly Groceries",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
+                            if (firstList != null) {
+                                val items = shoppingListViewModel.getListItems(firstList)
+                                val totalCount = items.size
+                                val checkedCount = items.count { it.checked }
+                                val progress = if (totalCount > 0) checkedCount.toFloat() / totalCount else 0f
+
                                 Text(
-                                    "45/60 Items",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    firstList.name,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    "Progress",
-                                    style = MaterialTheme.typography.bodySmall,
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "$checkedCount/$totalCount Items",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Progress",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = progress,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
+                                    trackColor = MaterialTheme.colorScheme.primaryContainer
                                 )
+                            } else {
+                                Text("No shopping lists", style = MaterialTheme.typography.bodySmall)
                             }
-                            LinearProgressIndicator(
-                                progress = 0.75f,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
                             Spacer(modifier = Modifier.height(4.dp))
                             Button(
                                 onClick = onShoppingListsClick,
@@ -417,7 +471,7 @@ fun DashboardScreen(
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add Recipe", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                Text("View Lists", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     }
@@ -660,6 +714,7 @@ fun DayPill(
 }
 
 sealed interface Screen {
+    data object Login : Screen
     data object Dashboard : Screen
     data object RecipeList : Screen
     data class RecipeDetail(val id: String) : Screen

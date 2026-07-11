@@ -40,6 +40,18 @@ class ShoppingListViewModel @Inject constructor(
         }
     }
 
+    fun loadListDetails(listId: String) {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            _syncError.value = null
+            val result = syncManager.refreshShoppingListDetails(listId)
+            if (result.isFailure) {
+                _syncError.value = result.exceptionOrNull()?.message ?: "Failed to load list details"
+            }
+            _isRefreshing.value = false
+        }
+    }
+
     fun toggleItemChecked(listEntity: ShoppingListEntity, itemId: String, currentChecked: Boolean) {
         viewModelScope.launch {
             val currentItems = syncManager.deserializeItems(listEntity.itemsJson)
@@ -55,20 +67,17 @@ class ShoppingListViewModel @Inject constructor(
                 updatedAt = listEntity.updatedAt
             )
             
-            // Apply optimistic update in local database
-            syncManager.updateShoppingList(optimisticList)
-
-            // 2. Perform Network / Cloud push
+            // 2. Perform Network / Cloud push (which also does optimistic database write internally)
             val pushResult = syncManager.updateShoppingList(optimisticList)
             if (pushResult.isFailure) {
-                // Rollback if push fails
+                // Rollback locally if push fails (do not push to cloud/network to avoid loops)
                 val rollbackList = ShoppingList(
                     id = listEntity.id,
                     name = listEntity.name,
                     items = currentItems,
                     updatedAt = listEntity.updatedAt
                 )
-                syncManager.updateShoppingList(rollbackList)
+                syncManager.updateShoppingList(rollbackList, localOnly = true)
                 _syncError.value = "Failed to update item checked state. Changes reverted."
             }
         }

@@ -43,6 +43,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
 import io.mealie.companion.data.local.entity.RecipeEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,8 +61,22 @@ fun RecipeListScreen(
     var searchQuery by remember { mutableStateOf("") }
     val pullToRefreshState = rememberPullToRefreshState()
 
-    if (pullToRefreshState.isRefreshing) {
+    LaunchedEffect(Unit) {
         viewModel.refresh()
+    }
+
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing) {
+            viewModel.refresh()
+        }
+    }
+
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) {
+            pullToRefreshState.startRefresh()
+        } else {
+            pullToRefreshState.endRefresh()
+        }
     }
 
     Scaffold(
@@ -112,7 +129,12 @@ fun RecipeListScreen(
                     .nestedScroll(pullToRefreshState.nestedScrollConnection)
             ) {
                 if (filteredRecipes.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
                             text = if (searchQuery.isEmpty()) "No recipes cached yet. Pull to sync!" else "No matching recipes found.",
                             style = MaterialTheme.typography.bodyLarge,

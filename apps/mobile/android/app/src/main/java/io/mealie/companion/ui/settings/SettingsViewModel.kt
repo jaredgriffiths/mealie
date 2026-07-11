@@ -18,8 +18,13 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val networkObserver: NetworkObserver,
     private val recipeDao: RecipeDao,
-    private val shoppingListDao: ShoppingListDao
+    private val shoppingListDao: ShoppingListDao,
+    private val sessionManager: io.mealie.companion.data.local.SessionManager
 ) : ViewModel() {
+
+    fun logout() {
+        sessionManager.clearSession()
+    }
 
     val isLANReachable: StateFlow<Boolean> = networkObserver.isLANReachable
 

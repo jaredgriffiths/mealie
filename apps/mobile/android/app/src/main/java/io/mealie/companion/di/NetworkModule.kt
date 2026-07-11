@@ -4,6 +4,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.mealie.companion.data.local.SessionManager
 import io.mealie.companion.data.remote.MealieApiService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -25,9 +26,24 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
+    fun provideOkHttpClient(
+        loggingInterceptor: HttpLoggingInterceptor,
+        sessionManager: SessionManager
+    ): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .addInterceptor { chain ->
+                val originalRequest = chain.request()
+                val token = sessionManager.getToken()
+                if (!token.isNullOrEmpty()) {
+                    val authenticatedRequest = originalRequest.newBuilder()
+                        .header("Authorization", "Bearer $token")
+                        .build()
+                    chain.proceed(authenticatedRequest)
+                } else {
+                    chain.proceed(originalRequest)
+                }
+            }
             .build()
     }
 
@@ -35,7 +51,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("http://localhost:9000/") // Default fallback base URL, dynamic configs resolved at runtime
+            .baseUrl("http://10.0.2.2:9091/") // Target emulator bridge IP and user's dev port
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

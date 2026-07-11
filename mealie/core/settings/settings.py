@@ -212,9 +212,9 @@ class AppSettings(AppLoggingSettings):
     # ===============================================
     # Security Configuration
 
-    SECURITY_MAX_LOGIN_ATTEMPTS: int = 5
-    SECURITY_USER_LOCKOUT_TIME: int = 24
-    "time in hours"
+    SECURITY_MAX_LOGIN_ATTEMPTS: int = 20
+    SECURITY_USER_LOCKOUT_TIME: int = 10
+    "time in minutes"
 
     @field_validator("BASE_URL")
     @classmethod
