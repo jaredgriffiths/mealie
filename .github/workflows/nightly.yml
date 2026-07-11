@@ -3,7 +3,7 @@ name: Docker Nightly Production
 on:
   push:
     branches:
-      - mealie-next
+      - main
     paths-ignore:
       - '*.md'
       - '.devcontainer/**'

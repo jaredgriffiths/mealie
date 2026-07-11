@@ -3,7 +3,7 @@ name: Build and Publish Production Docker Image to GHCR
 on:
   push:
     branches:
-      - mealie-next
+      - main
     paths-ignore:
       - '*.md'
       - '.vscode/**'
