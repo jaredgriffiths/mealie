@@ -59,8 +59,8 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 # 3. Docker Build & Push to GHCR
-echo "Building Docker image locally..."
-docker compose -f docker/docker-compose.yml build mealie
+echo "Building Docker image locally (forcing rebuild without cache)..."
+docker compose -f docker/docker-compose.yml build --no-cache mealie
 
 echo "Pushing Docker image to GitHub Container Registry (ghcr.io)..."
 docker push ghcr.io/jaredgriffiths/mealie:latest
