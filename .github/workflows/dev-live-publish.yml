@@ -52,3 +52,14 @@ jobs:
             ghcr.io/${{ steps.string.outputs.repo_lowercase }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build and push Sync Worker Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./services/sync-worker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.string.outputs.repo_lowercase }}-firebase-bridge:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

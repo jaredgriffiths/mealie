@@ -1,6 +1,7 @@
 services:
   sync-worker:
     container_name: mealie-firebase-bridge
+    image: ghcr.io/jaredgriffiths/mealie-firebase-bridge:latest
     build:
       context: ../
       dockerfile: ./services/sync-worker/Dockerfile

@@ -28,6 +28,8 @@ This file defines the project-specific rules, guidelines, and behavioral constra
 ### CI/CD & Deployments
 - **Branch Management:** Always work on and commit to the `main` branch.
 - **Docker Publishing:** Use the root script [publish.sh](file:///home/quok/Antigravity/mealie/mealie-1/publish.sh) to pull the latest official image from GHCR (`ghcr.io/jaredgriffiths/mealie:latest`) and start the production stack on the local LAN.
+- **Container Management:** The user uses **Portainer.io** to manage Docker containers, stacks, and images. Adapt all deployment, rebuild, and update instructions for Portainer.io UI.
+
 
 ## 🤖 AI Vibe Coding Reference Maps
 To keep the AI pair-programming efficiency high and optimize token usage, we maintain reference files under `.agents/`:
