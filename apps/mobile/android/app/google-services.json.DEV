@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "642102958682",
-    "project_id": "griffmeal-19f50",
-    "storage_bucket": "griffmeal-19f50.firebasestorage.app"
+    "project_number": "1005200647243",
+    "project_id": "griffmeal-dev",
+    "storage_bucket": "griffmeal-dev.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:642102958682:android:b4d5202accfd1088475663",
+        "mobilesdk_app_id": "1:1005200647243:android:8c207668c70f45b43599ce",
         "android_client_info": {
           "package_name": "io.mealie.companion"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBreyxo9G7yBG9heZXKEayz2mscOvSQiaw"
+          "current_key": "AIzaSyC1WCDGU4nDTIzDHTDPWbgWTPS1eWhvs8U"
         }
       ],
       "services": {

@@ -115,43 +115,44 @@
       </v-list>
     </template>
 
-    <!-- Bottom Navigation Links -->
-    <template #append>
-      <v-list v-model:selected="state.bottomSelected" nav density="comfortable">
-        <v-list-item
-          v-if="loggedIn && announcementsEnabled"
-          :title="$t('announcements.announcements')"
-          @click="() => showAnnouncementsDialog = !showAnnouncementsDialog"
-        >
-          <template #prepend>
-            <v-badge
-              :model-value="!!newAnnouncements.length"
-              color="accent"
-              :content="newAnnouncements.length || undefined"
-              offset-x="-2"
-            >
-              <v-icon>
-                {{ $globals.icons.bullhornVariant }}
-              </v-icon>
-            </v-badge>
-          </template>
-        </v-list-item>
-        <v-menu location="end bottom" :offset="15">
-          <template #activator="{ props: hoverProps }">
-            <v-list-item v-bind="hoverProps" :prepend-icon="$globals.icons.cog" :title="$t('general.settings')" />
-          </template>
-          <v-list density="comfortable" color="primary">
-            <v-list-item :prepend-icon="$globals.icons.translate" :title="$t('sidebar.language')" @click="state.languageDialog=true" />
-            <v-list-item :prepend-icon="$vuetify.theme.current.dark ? $globals.icons.weatherSunny : $globals.icons.weatherNight" :title="$vuetify.theme.current.dark ? $t('settings.theme.light-mode') : $t('settings.theme.dark-mode')" @click="toggleDark" />
-            <v-divider v-if="loggedIn" class="my-2" />
-            <v-list-item v-if="loggedIn" :prepend-icon="$globals.icons.cog" :title="$t('profile.user-settings')" to="/user/profile" />
-            <v-list-item v-if="canManage" :prepend-icon="$globals.icons.manageData" :title="$t('data-pages.data-management')" to="/group/data" />
-            <v-divider v-if="isAdmin" class="my-2" />
-            <v-list-item v-if="isAdmin" :prepend-icon="$globals.icons.wrench" :title="$t('settings.admin-settings')" to="/admin/site-settings" />
-          </v-list>
-        </v-menu>
-      </v-list>
-    </template>
+    <!-- Bottom Navigation Links (Moved inside the drawer body to allow scrolling if cut off) -->
+    <v-divider class="mt-auto" />
+    <v-list v-model:selected="state.bottomSelected" nav density="comfortable">
+      <v-list-item
+        v-if="loggedIn && announcementsEnabled"
+        :title="$t('announcements.announcements')"
+        @click="() => showAnnouncementsDialog = !showAnnouncementsDialog"
+      >
+        <template #prepend>
+          <v-badge
+            :model-value="!!newAnnouncements.length"
+            color="accent"
+            :content="newAnnouncements.length || undefined"
+            offset-x="-2"
+          >
+            <v-icon>
+              {{ $globals.icons.bullhornVariant }}
+            </v-icon>
+          </v-badge>
+        </template>
+      </v-list-item>
+      <v-menu location="end bottom" :offset="15">
+        <template #activator="{ props: hoverProps }">
+          <v-list-item v-bind="hoverProps" :prepend-icon="$globals.icons.cog" :title="$t('general.settings')" />
+        </template>
+        <v-list density="comfortable" color="primary">
+          <v-list-item :prepend-icon="$globals.icons.translate" :title="$t('sidebar.language')" @click="state.languageDialog=true" />
+          <v-list-item :prepend-icon="$vuetify.theme.current.dark ? $globals.icons.weatherSunny : $globals.icons.weatherNight" :title="$vuetify.theme.current.dark ? $t('settings.theme.light-mode') : $t('settings.theme.dark-mode')" @click="toggleDark" />
+          <v-divider v-if="loggedIn" class="my-2" />
+          <v-list-item v-if="loggedIn" :prepend-icon="$globals.icons.cog" :title="$t('profile.user-settings')" to="/user/profile" />
+          <v-list-item v-if="canManage" :prepend-icon="$globals.icons.manageData" :title="$t('data-pages.data-management')" to="/group/data" />
+          <v-divider v-if="isAdmin" class="my-2" />
+          <v-list-item v-if="isAdmin" :prepend-icon="$globals.icons.wrench" :title="$t('settings.admin-settings')" to="/admin/site-settings" />
+        </v-list>
+      </v-menu>
+    </v-list>
+    <!-- Add padding at the bottom to ensure it can be scrolled above taskbars -->
+    <div style="height: 60px;" />
   </v-navigation-drawer>
 </template>
 
