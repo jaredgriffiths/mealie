@@ -4,6 +4,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.mealie.companion.BuildConfig
 import io.mealie.companion.data.local.SessionManager
 import io.mealie.companion.data.remote.MealieApiService
 import okhttp3.OkHttpClient
@@ -65,7 +66,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://192.168.50.107:9925/") // Target production server via Caddy SSL
+            .baseUrl(BuildConfig.MEALIE_SERVER_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

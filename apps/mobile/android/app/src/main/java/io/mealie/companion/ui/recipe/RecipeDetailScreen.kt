@@ -1,5 +1,6 @@
 package io.mealie.companion.ui.recipe
 
+import io.mealie.companion.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -179,7 +180,7 @@ fun RecipeDetailScreen(
                         val context = LocalContext.current
                         val imageRequest = remember(recipe.image, recipe.id) {
                             ImageRequest.Builder(context)
-                                .data("https://192.168.50.107:9925/api/recipes/${recipe.id}/images/original.webp")
+                                .data("${BuildConfig.MEALIE_SERVER_URL}api/recipes/${recipe.id}/images/original.webp")
                                 .addHeader("Authorization", "Bearer ${sessionManager.getToken() ?: ""}")
                                 .crossfade(true)
                                 .build()

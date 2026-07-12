@@ -21,6 +21,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        val serverUrl = project.findProperty("MEALIE_SERVER_URL") as? String ?: "https://192.168.50.107:9925/"
+        buildConfigField("String", "MEALIE_SERVER_URL", "\"$serverUrl\"")
     }
 
     buildTypes {
@@ -41,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14" // aligned with Kotlin 1.9.24

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.GlobalScope
 import java.net.HttpURLConnection
 import java.net.URL
+import io.mealie.companion.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,7 +25,7 @@ class NetworkObserver @Inject constructor(
     private val _isLANReachable = MutableStateFlow(false)
     val isLANReachable: StateFlow<Boolean> = _isLANReachable
 
-    private var mealieHostUrl: String = "https://192.168.50.107:9925" // Default production Mealie server URL
+    private var mealieHostUrl: String = BuildConfig.MEALIE_SERVER_URL.removeSuffix("/")
 
     private val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
