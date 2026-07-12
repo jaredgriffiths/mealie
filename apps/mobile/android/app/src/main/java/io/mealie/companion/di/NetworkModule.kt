@@ -30,7 +30,21 @@ object NetworkModule {
         loggingInterceptor: HttpLoggingInterceptor,
         sessionManager: SessionManager
     ): OkHttpClient {
+        val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(
+            object : javax.net.ssl.X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+            }
+        )
+
+        val sslContext = javax.net.ssl.SSLContext.getInstance("SSL").apply {
+            init(null, trustAllCerts, java.security.SecureRandom())
+        }
+
         return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as javax.net.ssl.X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
             .addInterceptor(loggingInterceptor)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
@@ -51,7 +65,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("http://10.0.2.2:9091/") // Target emulator bridge IP and user's dev port
+            .baseUrl("https://192.168.50.107:9925/") // Target production server via Caddy SSL
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

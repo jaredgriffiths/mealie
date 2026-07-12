@@ -24,7 +24,7 @@ class NetworkObserver @Inject constructor(
     private val _isLANReachable = MutableStateFlow(false)
     val isLANReachable: StateFlow<Boolean> = _isLANReachable
 
-    private var mealieHostUrl: String = "http://10.0.2.2:9091" // Default Android Emulator host IP targeting localhost port 9091
+    private var mealieHostUrl: String = "https://192.168.50.107:9925" // Default production Mealie server URL
 
     private val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
 
@@ -53,6 +53,20 @@ class NetworkObserver @Inject constructor(
             try {
                 val url = URL(mealieHostUrl)
                 val connection = url.openConnection() as HttpURLConnection
+                if (connection is javax.net.ssl.HttpsURLConnection) {
+                    val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(
+                        object : javax.net.ssl.X509TrustManager {
+                            override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                            override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
+                            override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+                        }
+                    )
+                    val sslContext = javax.net.ssl.SSLContext.getInstance("SSL").apply {
+                        init(null, trustAllCerts, java.security.SecureRandom())
+                    }
+                    connection.sslSocketFactory = sslContext.socketFactory
+                    connection.hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
+                }
                 connection.connectTimeout = 2000
                 connection.readTimeout = 2000
                 connection.requestMethod = "HEAD"
