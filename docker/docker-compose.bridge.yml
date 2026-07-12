@@ -10,7 +10,7 @@ services:
       - MEALIE_API_TOKEN=${MEALIE_API_TOKEN}
       - FIREBASE_SERVICE_ACCOUNT_JSON=/app/data/firebase_service_account.json
     volumes:
-      - mealie-data:/app/data/
+      - /srv/dev-disk-by-uuid-9800de14-df33-4684-904e-16c9c372cae9/media/mealie/data:/app/data/
     deploy:
       resources:
         limits:
@@ -25,5 +25,3 @@ services:
     depends_on:
       - mealie
 
-volumes:
-  mealie-data:
