@@ -36,15 +36,13 @@ from . import cleaner
 
 SCRAPER_TIMEOUT = 15
 
-BROWSER_IMPERSONATIONS = [
-    "chrome120",
-    "safari17",
-    "firefox120",
+BROWSER_IMPERSONATIONS: list[str | None] = [
+    None,
     "chrome110",
+    "chrome120",
+    "firefox110",
     "chrome",
     "firefox",
-    "safari",
-    "edge",
 ]
 
 REALISTIC_BROWSER_HEADERS = {
@@ -93,9 +91,8 @@ async def safe_scrape_html(url: str) -> str:
     if the request takes longer than SCRAPER_TIMEOUT seconds. This is used to mitigate
     DDOS attacks from users providing a url with arbitrary large content.
 
-    Cycles through browser TLS impersonations (via httpx-curl-cffi) and realistic HTTP/2
-    headers to bypass anti-bot detection systems (Akamai, Cloudflare, DataDome) that
-    fingerprint TLS handshakes (JA3/JA4) or inspect header signatures.
+    Cycles through standard HTTP transport and browser TLS impersonations (via httpx-curl-cffi)
+    with realistic HTTP/2 headers to bypass anti-bot detection systems (Akamai, Cloudflare, DataDome).
     """
     logger.debug(f"Scraping URL: {url}")
 
@@ -108,51 +105,61 @@ async def safe_scrape_html(url: str) -> str:
         html_bytes = b""
         response = None
 
-        transport = safehttp.AsyncSafeTransport(
-            impersonate=impersonation,
-            default_headers=True,
-            verify=False,  # disable SSL verification since we can handle untrusted data and some sites don't have certs
-        )
-        async with AsyncClient(transport=transport, headers=REALISTIC_BROWSER_HEADERS) as client:
-            async with client.stream(
-                "GET",
-                url,
-                timeout=SCRAPER_TIMEOUT,
-                follow_redirects=True,
-            ) as resp:
-                if resp.status_code in (403, 429):
-                    logger.debug(f'Status code {resp.status_code} with impersonation "{impersonation}", trying next')
-                    continue
+        if impersonation:
+            transport = safehttp.AsyncSafeTransport(
+                impersonate=impersonation,
+                default_headers=True,
+                verify=False,
+            )
+        else:
+            transport = None
 
-                if resp.status_code >= 400:
-                    logger.debug(f'Error status code {resp.status_code} with impersonation "{impersonation}"')
-                    break
-
-                start_time = time.time()
-
-                async for chunk in resp.aiter_bytes(chunk_size=1024):
-                    html_bytes += chunk
-
-                    if time.time() - start_time > SCRAPER_TIMEOUT:
-                        raise ForceTimeoutException()
-
-                # Detect anti-bot challenge block pages
-                if html_bytes:
-                    encoding = resp.encoding or resp.apparent_encoding or "utf-8"
-                    try:
-                        decoded = str(html_bytes, encoding, errors="replace")
-                    except Exception:
-                        decoded = str(html_bytes, errors="replace")
-
-                    if any(sig in decoded.lower() for sig in ANTI_BOT_BLOCK_SIGNATURES):
+        try:
+            async with AsyncClient(transport=transport, headers=REALISTIC_BROWSER_HEADERS, verify=False) as client:
+                async with client.stream(
+                    "GET",
+                    url,
+                    timeout=SCRAPER_TIMEOUT,
+                    follow_redirects=True,
+                ) as resp:
+                    if resp.status_code in (403, 429):
                         logger.debug(
-                            f'Anti-bot challenge block detected with impersonation "{impersonation}", trying next'
+                            f'Status code {resp.status_code} with impersonation "{impersonation}", trying next'
                         )
-                        html_bytes = b""
                         continue
 
-                response = resp
-                break
+                    if resp.status_code >= 400:
+                        logger.debug(f'Error status code {resp.status_code} with impersonation "{impersonation}"')
+                        break
+
+                    start_time = time.time()
+
+                    async for chunk in resp.aiter_bytes(chunk_size=1024):
+                        html_bytes += chunk
+
+                        if time.time() - start_time > SCRAPER_TIMEOUT:
+                            raise ForceTimeoutException()
+
+                    # Detect anti-bot challenge block pages
+                    if html_bytes:
+                        encoding = resp.encoding or resp.apparent_encoding or "utf-8"
+                        try:
+                            decoded = str(html_bytes, encoding, errors="replace")
+                        except Exception:
+                            decoded = str(html_bytes, errors="replace")
+
+                        if any(sig in decoded.lower() for sig in ANTI_BOT_BLOCK_SIGNATURES):
+                            logger.debug(
+                                f'Anti-bot challenge block detected with impersonation "{impersonation}", trying next'
+                            )
+                            html_bytes = b""
+                            continue
+
+                    response = resp
+                    break
+        except Exception as e:
+            logger.debug(f'Scrape failed with impersonation "{impersonation}": {e}, trying next')
+            continue
 
     if not (response and html_bytes):
         return ""
