@@ -829,9 +829,23 @@ class RecipeScraperColes(ABCScraperStrategy):
         if og_desc and og_desc.get("content"):
             description = str(og_desc["content"])
 
-        og_img = soup.find("meta", property="og:image")
-        if og_img and og_img.get("content"):
-            image_url = str(og_img["content"])
+        # Extract hero image from AEM JSON components
+        for comp in find_by_type(script_data, "coles-onesite/components/imageComponent"):
+            if img_path := comp.get("image"):
+                image_url = img_path if img_path.startswith("http") else f"https://www.coles.com.au{img_path}"
+                break
+
+        if not image_url:
+            for comp in find_by_type(script_data, "coles-onesite/components/recipesummary"):
+                if img_path := comp.get("image"):
+                    image_url = img_path if img_path.startswith("http") else f"https://www.coles.com.au{img_path}"
+                    break
+
+        if not image_url:
+            og_img = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "twitter:image"})
+            if og_img and og_img.get("content"):
+                img_val = str(og_img["content"])
+                image_url = img_val if img_val.startswith("http") else f"https://www.coles.com.au{img_val}"
 
         if not ingredients and not steps:
             return None, None

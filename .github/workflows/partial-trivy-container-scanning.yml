@@ -25,6 +25,7 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
         env:
+      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db
 
       - name: Upload Trivy scan results to GitHub Security tab

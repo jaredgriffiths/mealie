@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
       PRODUCTION: false
       DATA_DIR: "/tmp/mealie_data"
       # Install from the committed lockfile; never re-resolve. The rolling
@@ -30,6 +31,7 @@ jobs:
       postgres:
         image: postgres
         env:
+      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           POSTGRES_USER: mealie
           POSTGRES_PASSWORD: mealie
           POSTGRES_DB: mealie
@@ -86,6 +88,7 @@ jobs:
 
       - name: Fast Unit Tests (Parallel)
         env:
+          ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           DB_ENGINE: ${{ matrix.Database }}
           POSTGRES_SERVER: localhost
         run: |
@@ -93,6 +96,7 @@ jobs:
 
       - name: Integration Tests (Parallel)
         env:
+          ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           DB_ENGINE: ${{ matrix.Database }}
           POSTGRES_SERVER: localhost
           LDAP_AUTH_ENABLED: True
@@ -108,4 +112,4 @@ jobs:
           LDAP_NAME_ATTRIBUTE: cn
           LDAP_MAIL_ATTRIBUTE: mail
         run: |
-          uv run pytest tests/integration_tests -n auto
+          uv run pytest tests/integration_tests -n auto --dist loadfile
