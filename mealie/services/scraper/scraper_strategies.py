@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import json
 import re
 import time
 from abc import ABC, abstractmethod
@@ -36,10 +37,41 @@ from . import cleaner
 SCRAPER_TIMEOUT = 15
 
 BROWSER_IMPERSONATIONS = [
+    "chrome120",
+    "safari17",
+    "firefox120",
+    "chrome110",
     "chrome",
     "firefox",
     "safari",
     "edge",
+]
+
+REALISTIC_BROWSER_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+}
+
+ANTI_BOT_BLOCK_SIGNATURES = [
+    "pardon our interruption",
+    "cf-browser-verification",
+    "challenge-running",
+    "attention required! | cloudflare",
+    "access denied",
+    "security check to access",
+    "datadome",
 ]
 
 logger = get_logger()
@@ -61,9 +93,9 @@ async def safe_scrape_html(url: str) -> str:
     if the request takes longer than SCRAPER_TIMEOUT seconds. This is used to mitigate
     DDOS attacks from users providing a url with arbitrary large content.
 
-    Cycles through browser TLS impersonations (via httpx-curl-cffi) to bypass
-    bot-detection systems that fingerprint the TLS handshake (JA3/JA4),
-    such as Cloudflare.
+    Cycles through browser TLS impersonations (via httpx-curl-cffi) and realistic HTTP/2
+    headers to bypass anti-bot detection systems (Akamai, Cloudflare, DataDome) that
+    fingerprint TLS handshakes (JA3/JA4) or inspect header signatures.
     """
     logger.debug(f"Scraping URL: {url}")
 
@@ -81,15 +113,15 @@ async def safe_scrape_html(url: str) -> str:
             default_headers=True,
             verify=False,  # disable SSL verification since we can handle untrusted data and some sites don't have certs
         )
-        async with AsyncClient(transport=transport) as client:
+        async with AsyncClient(transport=transport, headers=REALISTIC_BROWSER_HEADERS) as client:
             async with client.stream(
                 "GET",
                 url,
                 timeout=SCRAPER_TIMEOUT,
                 follow_redirects=True,
             ) as resp:
-                if resp.status_code == 403:
-                    logger.debug(f'403 Forbidden with impersonation "{impersonation}", trying next')
+                if resp.status_code in (403, 429):
+                    logger.debug(f'Status code {resp.status_code} with impersonation "{impersonation}", trying next')
                     continue
 
                 if resp.status_code >= 400:
@@ -103,6 +135,21 @@ async def safe_scrape_html(url: str) -> str:
 
                     if time.time() - start_time > SCRAPER_TIMEOUT:
                         raise ForceTimeoutException()
+
+                # Detect anti-bot challenge block pages
+                if html_bytes:
+                    encoding = resp.encoding or resp.apparent_encoding or "utf-8"
+                    try:
+                        decoded = str(html_bytes, encoding, errors="replace")
+                    except Exception:
+                        decoded = str(html_bytes, errors="replace")
+
+                    if any(sig in decoded.lower() for sig in ANTI_BOT_BLOCK_SIGNATURES):
+                        logger.debug(
+                            f'Anti-bot challenge block detected with impersonation "{impersonation}", trying next'
+                        )
+                        html_bytes = b""
+                        continue
 
                 response = resp
                 break
@@ -671,3 +718,129 @@ class RecipeScraperOpenGraph(ABCScraperStrategy):
             return None
 
         return Recipe(**og_data), ScrapedExtras()
+
+
+class RecipeScraperColes(ABCScraperStrategy):
+    """Custom Scraper Strategy for Coles Supermarkets Australia (coles.com.au).
+
+    Coles embeds recipe data within Adobe Experience Manager (AEM) JSON blocks
+    (`coles-onesite/components/...`) rather than standard Schema.org ld+json tags.
+
+    GUIDE FOR FUTURE EXTENSION:
+    To add support for another site using proprietary JSON (e.g. Woolworths or custom AEM sites):
+    1. Inherit from ABCScraperStrategy.
+    2. Match the target domain in `can_scrape()`.
+    3. Extract and parse the embedded script tag in `parse()`.
+    """
+
+    def can_scrape(self) -> bool:
+        if not self.url:
+            return False
+        return "coles.com.au" in self.url
+
+    async def get_html(self, url: str) -> str:
+        return self.raw_html or await safe_scrape_html(url)
+
+    async def parse(  # noqa: C901
+        self,
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
+    ) -> tuple[Recipe, ScrapedExtras] | tuple[None, None]:
+        if on_progress:
+            await on_progress(self.translator.t("recipe.create-progress.extracting-recipe-data"))
+
+        html = await self.get_html(self.url)
+        if not html:
+            return None, None
+
+        soup = bs4.BeautifulSoup(html, "html.parser")
+        script_data: dict[str, Any] | None = None
+
+        for script in soup.find_all("script"):
+            content = (script.string or script.get_text() or "").strip()
+            if "coles-onesite" in content:
+                try:
+                    script_data = json.loads(content)
+                    break
+                except Exception:
+                    pass
+
+        if not script_data:
+            self.logger.debug(f"Coles Scraper: No AEM JSON component found for {self.url}")
+            return None, None
+
+        def find_by_type(d: Any, target_type: str):
+            if isinstance(d, dict):
+                if d.get(":type") == target_type:
+                    yield d
+                for _k, v in d.items():
+                    yield from find_by_type(v, target_type)
+            elif isinstance(d, list):
+                for item in d:
+                    yield from find_by_type(item, target_type)
+
+        # Extract Title
+        title = "Coles Recipe"
+        for comp in find_by_type(script_data, "coles-onesite/components/reciperemotepagenext"):
+            if t := comp.get("title"):
+                title = t
+                break
+
+        # Extract Ingredients with Categories
+        ingredients: list[str] = []
+        for comp in find_by_type(script_data, "coles-onesite/components/recipeingredients"):
+            for category in comp.get("ingredientCategoryList", []):
+                heading = category.get("heading", "").strip()
+                if heading:
+                    ingredients.append(f"[{heading}]")
+                for ing in category.get("ingredients", []):
+                    if isinstance(ing, str) and ing.strip():
+                        ingredients.append(ing.strip())
+
+        # Extract Method Steps
+        steps: list[RecipeStep] = []
+        for comp in find_by_type(script_data, "coles-onesite/components/recipemethod"):
+            for step in comp.get("steps", []):
+                if isinstance(step, dict) and (desc := step.get("description")):
+                    steps.append(RecipeStep(title="", text=cleaner.clean_string(desc)))
+
+        # Extract Prep / Cook Times & Yield
+        prep_time = None
+        cook_time = None
+        servings = "1"
+        for comp in find_by_type(script_data, "coles-onesite/components/recipedetails"):
+            if prep_mins := comp.get("prepTimeAsMinutes"):
+                prep_time = f"PT{prep_mins}M"
+            if cook_mins := comp.get("cookTimeAsMinutes"):
+                cook_time = f"PT{cook_mins}M"
+            if s := comp.get("amountNumber"):
+                servings = str(s)
+
+        # Extract Description & Hero Image
+        description = ""
+        image_url = None
+        og_desc = soup.find("meta", property="og:description")
+        if og_desc and og_desc.get("content"):
+            description = str(og_desc["content"])
+
+        og_img = soup.find("meta", property="og:image")
+        if og_img and og_img.get("content"):
+            image_url = str(og_img["content"])
+
+        if not ingredients and not steps:
+            return None, None
+
+        recipe = Recipe(
+            name=cleaner.clean_string(title),
+            slug=slugify(title),
+            image=image_url,
+            description=cleaner.clean_string(description),
+            recipe_yield=servings,
+            recipe_ingredient=cleaner.clean_ingredients(ingredients),
+            recipe_instructions=steps,
+            prep_time=prep_time,
+            perform_time=cook_time,
+            org_url=self.url,
+        )
+
+        return recipe, ScrapedExtras()
+

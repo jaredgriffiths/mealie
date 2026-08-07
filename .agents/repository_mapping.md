@@ -40,3 +40,17 @@ This index documents the correct mappings between SQLAlchemy models and the attr
 
 > [!WARNING]
 > **Common Pitfall**: Do **NOT** use `self.repos.shopping_lists` or `self.repos.meal_plans`. Doing so will raise an `AttributeError` at runtime. Refer to the mapping above.
+
+---
+
+## 🕷️ Web Scraper Strategies & Anti-Bot Architecture
+
+Mealie uses a multi-tiered scraping engine to ingest web recipes automatically:
+
+| Component / Strategy | File Path | Description |
+|---|---|---|
+| **`safe_scrape_html()`** | `mealie/services/scraper/scraper_strategies.py` | Multi-signature TLS handshake browser impersonation (`httpx-curl-cffi`), realistic headers, and anti-bot challenge block page detection (Akamai, Cloudflare, DataDome). |
+| **`RecipeScraperColes`** | `mealie/services/scraper/scraper_strategies.py` | Native scraper for `coles.com.au`. Parses Adobe Experience Manager (AEM) JSON components for title, ingredients with sections, method steps, yields, prep/cook times, and images. |
+| **`RecipeScraperPackage`** | `mealie/services/scraper/scraper_strategies.py` | Standard `schema.org/Recipe` `ld+json` scraper via `recipe-scrapers` library. |
+| **`RecipeScraperOpenAI`** | `mealie/services/scraper/scraper_strategies.py` | AI-assisted fallback scraper when structured `ld+json` is missing. |
+

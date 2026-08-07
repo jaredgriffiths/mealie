@@ -62,7 +62,7 @@ To build institutional knowledge, the orchestrator relies on the `agent-memory-m
 ### 2. Retrieve Past Knowledge
 [Triggered if the task is complex]
 1. Use the `memory_search` tool provided by `agent-memory-mcp` to search for similar past tasks.
-   - Example query: `memory_search({ query: "skill combination for react native and firebase", type: "skill_combination" })`
+   - Example query: `memory_search({ query: "skill combination for vue pwa and database", type: "skill_combination" })`
 2. If a working combination exists, read the details using `memory_read`.
 3. If no relevant memory exists, proceed to Step 3.
 

@@ -59,30 +59,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install uv
-        run: pip install uv
-
-      - name: Load cached venv
-        id: cached-python-dependencies
-        uses: actions/cache@v5
+      - name: Install & Setup uv with Cache
+        uses: astral-sh/setup-uv@v5
         with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
 
-      - name: Check venv cache
-        id: cache-validate
-        if: steps.cached-python-dependencies.outputs.cache-hit == 'true'
-        run: |
-          echo "import fastapi;print('venv good?')" > test.py && uv run python test.py && echo "cache-hit-success=true" >> $GITHUB_OUTPUT
-          rm test.py
-        continue-on-error: true
-
-      - name: Install dependencies
+      - name: Install system dependencies & sync venv
         run: |
           sudo apt-get update
-          sudo apt-get install libsasl2-dev libldap2-dev libssl-dev
+          sudo apt-get install -y libsasl2-dev libldap2-dev libssl-dev
           uv sync --group dev --extra pgsql
-        if: steps.cached-python-dependencies.outputs.cache-hit != 'true' || steps.cache-validate.outputs.cache-hit-success != 'true'
 
       - name: Formatting (Ruff)
         run: |
@@ -96,7 +83,14 @@ jobs:
         run: |
           task py:mypy
 
-      - name: Pytest
+      - name: Fast Unit Tests (Parallel)
+        env:
+          DB_ENGINE: ${{ matrix.Database }}
+          POSTGRES_SERVER: localhost
+        run: |
+          uv run pytest tests/unit_tests -n auto
+
+      - name: Integration Tests (Parallel)
         env:
           DB_ENGINE: ${{ matrix.Database }}
           POSTGRES_SERVER: localhost
@@ -113,4 +107,4 @@ jobs:
           LDAP_NAME_ATTRIBUTE: cn
           LDAP_MAIL_ATTRIBUTE: mail
         run: |
-          task py:test
+          uv run pytest tests/integration_tests -n auto
