@@ -5,12 +5,12 @@ from . import (
     admin_backups,
     admin_debug,
     admin_email,
+    admin_firebase_bridge,
     admin_maintenance,
     admin_management_ai_providers,
     admin_management_groups,
     admin_management_households,
     admin_management_users,
-    admin_firebase_bridge,
 )
 
 router = AdminAPIRouter(prefix="/admin")

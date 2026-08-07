@@ -1,10 +1,8 @@
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional
 
 from mealie.core.settings.directories import AppDirectories
-from mealie.schema.admin.firebase_bridge import FirebaseBridgeSettings, FirebaseBridgeSave, FirebaseBridgeStatus
+from mealie.schema.admin.firebase_bridge import FirebaseBridgeSave, FirebaseBridgeSettings
 
 logger = logging.getLogger("mealie.firebase-bridge-service")
 
@@ -57,7 +55,7 @@ class FirebaseBridgeService:
                 json.dump(config, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to write Firebase bridge config: {e}")
-            raise IOError("Could not save configuration settings") from e
+            raise OSError("Could not save configuration settings") from e
 
         # Save credentials JSON if provided
         if data.credentials_json:
@@ -86,7 +84,7 @@ class FirebaseBridgeService:
             logger.error(f"Failed to read sync worker logs: {e}")
             return [f"Failed to retrieve logs: {str(e)}"]
 
-    def test_credentials(self, credentials_json: str) -> tuple[bool, Optional[str]]:
+    def test_credentials(self, credentials_json: str) -> tuple[bool, str | None]:
         """Validate JSON format of the Firebase Credentials string."""
         try:
             creds = json.loads(credentials_json)

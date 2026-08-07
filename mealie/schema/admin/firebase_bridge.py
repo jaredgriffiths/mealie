@@ -1,4 +1,4 @@
-from typing import Optional
+
 from mealie.schema._mealie.mealie_model import MealieModel
 
 
@@ -15,7 +15,7 @@ class FirebaseBridgeSave(MealieModel):
     enabled: bool
     sync_strategy: str
     mealie_host_url: str
-    credentials_json: Optional[str] = None
+    credentials_json: str | None = None
 
 
 class FirebaseBridgeStatus(MealieModel):
@@ -24,7 +24,7 @@ class FirebaseBridgeStatus(MealieModel):
     firebase_auth_status: bool
     firestore_db_status: bool
     mealie_api_status: bool
-    last_heartbeat: Optional[str] = None
+    last_heartbeat: str | None = None
     recipe_count: int
     shopping_list_count: int
     meal_plan_count: int
@@ -38,4 +38,4 @@ class FirebaseBridgeTestRequest(MealieModel):
 class FirebaseBridgeTestResponse(MealieModel):
     """Pydantic model for test key response."""
     success: bool
-    error: Optional[str] = None
+    error: str | None = None

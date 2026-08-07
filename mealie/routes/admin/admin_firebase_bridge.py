@@ -1,4 +1,5 @@
 import json
+
 from fastapi import APIRouter, HTTPException
 
 from mealie.routes._base import BaseAdminController, controller

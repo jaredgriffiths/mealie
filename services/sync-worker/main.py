@@ -6,16 +6,17 @@ to capture cloud changes, resolves conflicts using Last-Write-Wins (LWW), and
 interfaces back to Mealie's REST API.
 """
 
-import os
 import asyncio
-import logging
 import json
+import logging
+import os
 from datetime import datetime
-from typing import Dict, Any, Optional
-import httpx
+from typing import Any
+
 import firebase_admin
-from firebase_admin import credentials, firestore
+import httpx
 from dotenv import load_dotenv
+from firebase_admin import credentials, firestore
 
 # Load environment configurations
 load_dotenv()
@@ -58,7 +59,7 @@ class MealieSyncWorker:
 
     def __init__(self) -> None:
         """Initialize Sync Worker configurations, client state, and events."""
-        self.db: Optional[firestore.client.Client] = None
+        self.db: firestore.client.Client | None = None
         self.async_http_client = httpx.AsyncClient(base_url=MEALIE_API_URL, headers=MEALIE_HEADERS, timeout=10.0)
         self.is_enabled = False
         self.loop = None
@@ -147,7 +148,7 @@ class MealieSyncWorker:
             "mealie_reachable": mealie_reachable
         })
 
-    async def process_incoming_cloud_recipe(self, doc_id: str, cloud_data: Dict[str, Any]) -> None:
+    async def process_incoming_cloud_recipe(self, doc_id: str, cloud_data: dict[str, Any]) -> None:
         """Process a recipe updated in the cloud and sync back to local Mealie if applicable."""
         if not self.is_enabled:
             return
