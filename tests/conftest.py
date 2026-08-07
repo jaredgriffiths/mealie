@@ -25,6 +25,24 @@ import time
 
 if worker_id := os.getenv("PYTEST_XDIST_WORKER"):
     os.environ["DATA_DIR"] = f"/tmp/mealie_test_{worker_id}"
+    if os.getenv("DB_ENGINE") == "postgres":
+        db_name = f"mealie_{worker_id}"
+        os.environ["POSTGRES_DB"] = db_name
+        user = os.getenv("POSTGRES_USER", "mealie")
+        password = os.getenv("POSTGRES_PASSWORD", "mealie")
+        host = os.getenv("POSTGRES_SERVER", "localhost")
+        port = os.getenv("POSTGRES_PORT", "5432")
+
+        with contextlib.suppress(Exception):
+            import psycopg2
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+            conn = psycopg2.connect(dbname="postgres", user=user, password=password, host=host, port=port)
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            cursor = conn.cursor()
+            cursor.execute(f"CREATE DATABASE {db_name}")
+            cursor.close()
+            conn.close()
 
 os.environ["TZ"] = "UTC"
 with contextlib.suppress(AttributeError):
