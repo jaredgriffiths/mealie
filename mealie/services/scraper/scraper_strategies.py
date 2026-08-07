@@ -843,4 +843,3 @@ class RecipeScraperColes(ABCScraperStrategy):
         )
 
         return recipe, ScrapedExtras()
-
