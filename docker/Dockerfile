@@ -6,15 +6,18 @@ FROM node:24@sha256:fdddfb3e688158251943d52eba361de991548f6814007acba4917ae6b512
 
 WORKDIR /frontend
 
-COPY frontend .
+# Copy dependency manifests first to maximize Docker layer caching
+COPY frontend/package.json frontend/yarn.lock ./
 
-RUN yarn install \
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn \
+    yarn install \
     --prefer-offline \
     --frozen-lockfile \
     --non-interactive \
     --production=false \
-    # https://github.com/docker/build-push-action/issues/471
     --network-timeout 1000000
+
+COPY frontend .
 
 RUN yarn generate
 

@@ -54,3 +54,12 @@ Mealie uses a multi-tiered scraping engine to ingest web recipes automatically:
 | **`RecipeScraperPackage`** | `mealie/services/scraper/scraper_strategies.py` | Standard `schema.org/Recipe` `ld+json` scraper via `recipe-scrapers` library. |
 | **`RecipeScraperOpenAI`** | `mealie/services/scraper/scraper_strategies.py` | AI-assisted fallback scraper when structured `ld+json` is missing. |
 
+---
+
+## ⚡ Docker Build & Architecture Performance Settings
+
+- **Layer Caching**: `docker/Dockerfile` copies `package.json` & `yarn.lock` before source code and uses `--mount=type=cache,target=/usr/local/share/.cache/yarn` to cache package downloads across builds.
+- **Single Architecture Target (`linux/amd64`)**: `.github/workflows/dev-live-publish.yml` targets `platforms: linux/amd64` to eliminate QEMU software emulation overhead for x86_64 LAN servers.
+- **Client PWA Compatibility**: Mobile devices (iOS/Android) run the PWA web application in client browsers. Restricting server container binaries to `linux/amd64` has zero impact on mobile devices.
+
+
