@@ -1,8 +1,6 @@
 import json
 
 from fastapi import APIRouter, HTTPException
-
-from mealie.routes._base import BaseAdminController, controller
 from mealie.schema.admin.firebase_bridge import (
     FirebaseBridgeSave,
     FirebaseBridgeSettings,
@@ -10,8 +8,10 @@ from mealie.schema.admin.firebase_bridge import (
     FirebaseBridgeTestRequest,
     FirebaseBridgeTestResponse,
 )
-from mealie.schema.response import SuccessResponse
 from mealie.services.firebase_bridge_service import FirebaseBridgeService
+
+from mealie.routes._base import BaseAdminController, controller
+from mealie.schema.response import SuccessResponse
 
 router = APIRouter(prefix="/settings/firebase-bridge")
 

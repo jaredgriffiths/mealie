@@ -1,8 +1,9 @@
 import json
 import logging
 
-from mealie.core.settings.directories import AppDirectories
 from mealie.schema.admin.firebase_bridge import FirebaseBridgeSave, FirebaseBridgeSettings
+
+from mealie.core.settings.directories import AppDirectories
 
 logger = logging.getLogger("mealie.firebase-bridge-service")
 
@@ -38,7 +39,7 @@ class FirebaseBridgeService:
             enabled=enabled,
             sync_strategy=sync_strategy,
             mealie_host_url=mealie_host_url,
-            credentials_uploaded=credentials_uploaded
+            credentials_uploaded=credentials_uploaded,
         )
 
     def save_settings(self, data: FirebaseBridgeSave) -> None:
@@ -47,7 +48,7 @@ class FirebaseBridgeService:
         config = {
             "enabled": data.enabled,
             "sync_strategy": data.sync_strategy,
-            "mealie_host_url": data.mealie_host_url
+            "mealie_host_url": data.mealie_host_url,
         }
 
         try:
@@ -92,10 +93,10 @@ class FirebaseBridgeService:
             missing_keys = [k for k in required_keys if k not in creds]
             if missing_keys:
                 return False, f"Missing required fields in service account: {', '.join(missing_keys)}"
-            
+
             if creds.get("type") != "service_account":
                 return False, "Invalid credential type. Must be 'service_account'."
-            
+
             return True, None
         except json.JSONDecodeError as e:
             return False, f"Invalid JSON string format: {str(e)}"

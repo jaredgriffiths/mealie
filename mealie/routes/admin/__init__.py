@@ -5,7 +5,6 @@ from . import (
     admin_backups,
     admin_debug,
     admin_email,
-    admin_firebase_bridge,
     admin_maintenance,
     admin_management_ai_providers,
     admin_management_groups,
@@ -24,4 +23,3 @@ router.include_router(admin_email.router, tags=["Admin: Email"])
 router.include_router(admin_backups.router, tags=["Admin: Backups"])
 router.include_router(admin_maintenance.router, tags=["Admin: Maintenance"])
 router.include_router(admin_debug.router, tags=["Admin: Debug"])
-router.include_router(admin_firebase_bridge.router, tags=["Admin: Firebase Bridge"])

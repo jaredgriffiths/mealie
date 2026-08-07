@@ -25,4 +25,3 @@ services:
       start_period: 30s
     depends_on:
       - mealie
-

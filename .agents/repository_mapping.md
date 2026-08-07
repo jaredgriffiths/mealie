@@ -1,8 +1,31 @@
-# SQLAlchemy Model to Repository Mappings
+# Mealie AI Reference Map & Repository Index
+
+This reference map enables instant navigation across backend repositories, API routes, schemas, and PWA frontend modules for high token efficiency.
+
+## 🧭 Directory & Module Quick-Lookup Index
+
+```
+Mealie Core Architecture Index
+├── mealie/              (Python FastAPI Backend)
+│   ├── routes/          (API Controllers / Route Handlers)
+│   ├── schema/          (Pydantic Schemas / Request & Response Models)
+│   ├── repos/           (SQLAlchemy DB Repositories - AllRepositories)
+│   ├── services/        (Business Logic & Service Layer)
+│   └── core/            (Configuration, Settings & Directories)
+├── frontend/            (Nuxt 3 Vue PWA Application)
+│   ├── app/pages/       (Vue Page Components & URL Routes)
+│   ├── app/components/  (Reusable UI Components)
+│   ├── app/composables/ (API Client & Pinia State Hooks)
+│   └── nuxt.config.ts   (PWA & Vite Settings)
+├── apps/mobile/pwa/     (Standalone Companion PWA)
+└── archive/             (Archived Reference Code: firebase/, android/)
+```
+
+---
+
+## 🗄️ SQLAlchemy Model to Repository Mappings
 
 This index documents the correct mappings between SQLAlchemy models and the attributes available on Mealie's repository factory wrapper `AllRepositories` (instantiated as `self.repos`).
-
-## Repository Map
 
 | Domain Model / Context | Repository Instance Attribute | Source Class File |
 |---|---|---|

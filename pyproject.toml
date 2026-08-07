@@ -134,6 +134,7 @@ exclude = [
   ".venv",
   "__pypackages__",
   "_build",
+  "archive",
   "buck-out",
   "build",
   "dist",

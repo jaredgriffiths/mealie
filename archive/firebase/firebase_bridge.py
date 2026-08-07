@@ -1,4 +1,3 @@
-
 from mealie.schema._mealie.mealie_model import MealieModel
 
 

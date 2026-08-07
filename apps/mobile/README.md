@@ -1,8 +1,10 @@
-# Mobile Applications (Placeholder)
+# Mobile Applications
 
-This directory is reserved for future mobile applications (iOS, Android, React Native, or Flutter) that connect to the Mealie Firebase Sync Bridge.
+Mealie's mobile experience is delivered via **Progressive Web App (PWA)** technology, offering full offline caching, real-time recipe management, and native device installation on iOS and Android.
 
-## Mobile Architecture Note
-The mobile apps will utilize a **Hybrid Sync** strategy:
-1. **Local LAN Mode (Primary)**: When connected to the home network, communicate directly with the Mealie API at `http://<server-ip>:9925` to download recipes, synchronize data, and access media assets.
-2. **Cloud Mode (Fallback)**: When away from home, query and write light updates (such as checking items on the shopping list or modifying meal plans) using the **Google Firestore** cloud cache.
+## Mobile Components
+1. **Primary Web App PWA (`frontend/`)**: Full-featured Nuxt 3 PWA with offline Workbox caching, dynamic manifest, and installation support.
+2. **Mobile Companion PWA (`apps/mobile/pwa/`)**: Standalone Vite PWA companion client.
+
+## Native App Archiving
+The native Android Kotlin companion app has been archived in `archive/android/` for reference. All mobile client updates and features are focused on PWA capabilities.

@@ -1,0 +1,13 @@
+# AI Search & Token Optimization Exclusions
+
+archive/
+dev/data/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+node_modules/
+.nuxt/
+.output/
