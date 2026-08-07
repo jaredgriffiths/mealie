@@ -23,6 +23,9 @@ mp.setenv("ALLOW_SIGNUP", "True")
 import os
 import time
 
+if worker_id := os.getenv("PYTEST_XDIST_WORKER"):
+    os.environ["DATA_DIR"] = f"/tmp/mealie_test_{worker_id}"
+
 os.environ["TZ"] = "UTC"
 with contextlib.suppress(AttributeError):
     time.tzset()

@@ -13,6 +13,7 @@ jobs:
 
     env:
       PRODUCTION: false
+      DATA_DIR: "/tmp/mealie_data"
       # Install from the committed lockfile; never re-resolve. The rolling
       # `exclude-newer` cooling window (pyproject [tool.uv]) would otherwise make
       # every uv command re-resolve and fail on in-window pins.
