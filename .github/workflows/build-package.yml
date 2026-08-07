@@ -92,7 +92,6 @@ jobs:
 
       - name: Build package and requirements.txt
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           SKIP_PACKAGE_DEPS: true
         run: |
           task py:package

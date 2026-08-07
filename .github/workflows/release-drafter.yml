@@ -19,7 +19,6 @@ jobs:
     steps:
       - uses: release-drafter/release-drafter@v7
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   auto_label:
@@ -30,5 +29,4 @@ jobs:
     steps:
       - uses: release-drafter/release-drafter/autolabeler@v7
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

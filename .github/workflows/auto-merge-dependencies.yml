@@ -16,7 +16,6 @@ jobs:
     steps:
       - name: Validate PR author
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           if [[ "$AUTHOR" != "renovate[bot]" ]]; then
@@ -27,7 +26,6 @@ jobs:
 
       - name: Reject major updates
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           if echo "$TITLE" | grep -qiE '(major|breaking)'; then
@@ -38,7 +36,6 @@ jobs:
 
       - name: Validate file paths
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
@@ -63,7 +60,6 @@ jobs:
 
       - name: Approve PR
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
@@ -93,7 +89,6 @@ jobs:
 
       - name: Enable auto-merge
         env:
-      ACTIONS_NODE20_DEPRECATION_WARNING: "false"
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
