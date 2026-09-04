@@ -49,6 +49,10 @@ export default defineNuxtConfig({
           name: "description",
           content: "Mealie is a recipe management app for your kitchen.",
         },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+        { name: "apple-mobile-web-app-title", content: "Mealie" },
+        { name: "mobile-web-app-capable", content: "yes" },
       ],
       script: [
         {

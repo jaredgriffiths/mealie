@@ -474,6 +474,9 @@
     }
   },
   "new-recipe": {
+    "ai-fallback-details": "If the site lacks structured Schema.org data or uses an incompatible layout, configure a local or cloud LLM (such as Ollama, LocalAI, or OpenAI) in your Group Settings. When enabled, Mealie will automatically fall back to parsing the raw webpage text with AI.",
+    "ai-fallback-link": "Configure AI Providers in Group Settings",
+    "ai-fallback-title": "AI / Local LLM Ingestion",
     "bulk-add": "Bulk Add",
     "error-details": "Only websites containing ld+json or microdata can be imported by Mealie. Most major recipe websites support this data structure. If your site cannot be imported but there is json data in the log, please submit a github issue with the URL and data.",
     "error-title": "Looks Like We Couldn't Find Anything",

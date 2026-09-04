@@ -53,9 +53,9 @@ Workspace customization resources for AI agents are located under the [.agents/]
 ## 🔁 CI/CD & Deployment Pipeline
 
 To ensure quality and structure when releasing updates:
-1. **Branch Protection & Development:** All feature/dev updates must be committed to the `dev` branch rather than directly to `mealie-next`.
-2. **Dev Publication (Localhost):** The [dev-publish.sh](file:///home/quok/Antigravity/mealie/dev-publish.sh) script switches to `dev`, commits/pushes changes, and builds the Docker image locally on the localhost Docker daemon (`mealie:dev`).
-3. **Live Publication (GHCR):** The [live-publish.sh](file:///home/quok/Antigravity/mealie/live-publish.sh) script merges `dev` into `mealie-next` and pushes it to GitHub, which triggers the GitHub Actions workflow at [.github/workflows/dev-live-publish.yml](file:///home/quok/Antigravity/mealie/.github/workflows/dev-live-publish.yml) to automatically build the Docker image and publish it to the GitHub Container Registry (`ghcr.io/<username>/mealie:latest`). Your LAN server can then pull directly from GHCR.
+1. **Branch Management:** Always work on and commit directly to the `main` branch.
+2. **Container Image Publishing:** The [publish.sh](file:///home/quok/Antigravity/mealie/publish.sh) root script verifies git status, stages and commits changes, and pushes to `main`. This triggers the GitHub Actions workflow at [.github/workflows/dev-live-publish.yml](file:///home/quok/Antigravity/mealie/.github/workflows/dev-live-publish.yml) to build and publish the production image to the GitHub Container Registry (`ghcr.io/jaredgriffiths/mealie:latest`).
+3. **Deployment on LAN:** Once the GHCR image build finishes, the production stack is updated on the local LAN server (or Portainer.io UI) via `docker compose pull && docker compose up -d`.
 
 
 

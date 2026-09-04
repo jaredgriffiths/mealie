@@ -1,5 +1,61 @@
 {
   "api_prefix": "/api",
-  "admin_routes": {},
-  "models": {}
+  "routes": {
+    "recipes": {
+      "prefix": "/api/recipes",
+      "router_file": "mealie/routes/recipe/recipe_crud_routes.py",
+      "repository": "self.repos.recipes",
+      "schema_in": "RecipeIn",
+      "schema_out": "RecipeOut"
+    },
+    "groups": {
+      "prefix": "/api/groups",
+      "router_file": "mealie/routes/groups/groups.py",
+      "repository": "self.repos.groups",
+      "schema_out": "GroupOut"
+    },
+    "households": {
+      "prefix": "/api/households",
+      "router_file": "mealie/routes/households/households.py",
+      "repository": "self.repos.households",
+      "schema_out": "HouseholdOut"
+    },
+    "meal_plans": {
+      "prefix": "/api/households/meals",
+      "router_file": "mealie/routes/households/meals.py",
+      "repository": "self.repos.meals",
+      "schema_in": "MealPlanIn",
+      "schema_out": "MealPlanOut"
+    },
+    "shopping_lists": {
+      "prefix": "/api/groups/shopping/lists",
+      "router_file": "mealie/routes/groups/shopping/shopping_lists.py",
+      "repository": "self.repos.group_shopping_lists",
+      "schema_in": "ShoppingListIn",
+      "schema_out": "ShoppingListOut"
+    },
+    "ai_providers": {
+      "prefix": "/api/groups/ai/providers",
+      "router_file": "mealie/routes/groups/ai/ai_providers.py",
+      "repository": "self.repos.group_ai_providers",
+      "schema_in": "AIProviderIn",
+      "schema_out": "AIProviderOut"
+    },
+    "users": {
+      "prefix": "/api/users",
+      "router_file": "mealie/routes/users/users.py",
+      "repository": "self.repos.users",
+      "schema_out": "UserOut"
+    }
+  },
+  "admin_routes": {
+    "site_settings": {
+      "prefix": "/api/admin/site-settings",
+      "router_file": "mealie/routes/admin/admin.py"
+    },
+    "backups": {
+      "prefix": "/api/admin/backups",
+      "router_file": "mealie/routes/admin/admin.py"
+    }
+  }
 }

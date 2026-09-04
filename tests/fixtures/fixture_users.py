@@ -6,6 +6,7 @@ from pytest import fixture
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
+from mealie.core.config import get_app_settings
 from mealie.db.db_setup import session_context
 from mealie.db.models.users.users import AuthMethod
 from mealie.repos.all_repositories import get_repositories
@@ -332,6 +333,7 @@ def user_token(admin_token, api_client: TestClient):
 def ldap_user():
     # Create an LDAP user directly instead of using TestClient since we don't have
     # a LDAP service set up
+    settings = get_app_settings()
     with session_context() as session:
         db = get_repositories(session, group_id=None, household_id=None)
         user = db.users.create(
@@ -342,6 +344,8 @@ def ldap_user():
                 "email": utils.random_string(10),
                 "admin": False,
                 "auth_method": AuthMethod.LDAP,
+                "group": settings.DEFAULT_GROUP,
+                "household": settings.DEFAULT_HOUSEHOLD,
             }
         )
     yield user

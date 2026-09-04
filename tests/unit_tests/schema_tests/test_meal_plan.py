@@ -1,17 +1,17 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
 from mealie.schema.meal_plan.plan_rules import PlanRulesDay
 
 test_cases = [
-    (datetime(2022, 2, 7), PlanRulesDay.monday),
-    (datetime(2022, 2, 8), PlanRulesDay.tuesday),
-    (datetime(2022, 2, 9), PlanRulesDay.wednesday),
-    (datetime(2022, 2, 10), PlanRulesDay.thursday),
-    (datetime(2022, 2, 11), PlanRulesDay.friday),
-    (datetime(2022, 2, 12), PlanRulesDay.saturday),
-    (datetime(2022, 2, 13), PlanRulesDay.sunday),
+    (datetime(2022, 2, 7, tzinfo=UTC), PlanRulesDay.monday),
+    (datetime(2022, 2, 8, tzinfo=UTC), PlanRulesDay.tuesday),
+    (datetime(2022, 2, 9, tzinfo=UTC), PlanRulesDay.wednesday),
+    (datetime(2022, 2, 10, tzinfo=UTC), PlanRulesDay.thursday),
+    (datetime(2022, 2, 11, tzinfo=UTC), PlanRulesDay.friday),
+    (datetime(2022, 2, 12, tzinfo=UTC), PlanRulesDay.saturday),
+    (datetime(2022, 2, 13, tzinfo=UTC), PlanRulesDay.sunday),
 ]
 
 

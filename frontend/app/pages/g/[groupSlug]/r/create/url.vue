@@ -110,6 +110,17 @@
           <p>
             {{ $t("new-recipe.error-details") }}
           </p>
+          <br>
+          <p>
+            <strong>{{ $t("new-recipe.ai-fallback-title") }}:</strong>
+            {{ $t("new-recipe.ai-fallback-details") }}
+            <router-link
+              :to="aiSettingsTarget"
+              class="ml-1 font-weight-bold"
+            >
+              {{ $t("new-recipe.ai-fallback-link") }} &rarr;
+            </router-link>
+          </p>
         </div>
         <div class="d-flex row justify-space-around my-3 force-url-white">
           <a
@@ -178,6 +189,7 @@ const {
 
 const bulkImporterTarget = computed(() => `/g/${groupSlug.value}/r/create/bulk`);
 const htmlOrJsonImporterTarget = computed(() => `/g/${groupSlug.value}/r/create/html`);
+const aiSettingsTarget = computed(() => "/group");
 
 function handleResponse(response: AxiosResponse<string> | null, refreshTags = false) {
   if (response?.status !== 201) {

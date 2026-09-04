@@ -1,13 +1,14 @@
 import pytest
+
 from mealie.lang.providers import get_locale_provider
 from mealie.services.scraper.scraper_strategies import RecipeScraperColes
-
 
 COLES_SAMPLE_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <meta property="og:description" content="A delicious Moroccan style slow cooker soup with tender lamb and lentils." />
+    <meta property="og:description"
+          content="A delicious Moroccan style slow cooker soup with tender lamb and lentils." />
     <meta property="og:image" content="https://images.coles.com.au/lamb-soup.jpg" />
 </head>
 <body>
