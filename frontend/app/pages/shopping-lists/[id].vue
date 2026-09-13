@@ -27,6 +27,12 @@
       </v-card-text>
     </BaseDialog>
 
+    <!-- Google Keep Sync Dialog -->
+    <DialogGoogleKeepSync
+      v-model="keepSyncDialog"
+      :items-by-label="itemsByLabel"
+    />
+
     <BaseDialog
       v-model="state.deleteCheckedDialog"
       :title="$t('general.confirm')"
@@ -113,6 +119,11 @@
                     ],
                   },
                   {
+                    icon: $globals.icons.googleKeep,
+                    text: $t('shopping-list.send-to-google-keep') || 'Google Keep',
+                    event: 'google-keep',
+                  },
+                  {
                     icon: $globals.icons.checkboxOutline,
                     text: $t('shopping-list.check-all-items'),
                     event: 'check',
@@ -136,6 +147,7 @@
                   },
                 ]"
                 @edit="edit = true"
+                @google-keep="keepSyncDialog = true"
                 @three-dot="threeDot = true"
                 @check="openCheckAll"
                 @copy-plain="copyListItems('plain')"
@@ -394,6 +406,8 @@ function itemCheckedToast(item: ShoppingListItemOut) {
     );
   }, 500);
 }
+
+const keepSyncDialog = ref(false);
 
 const {
   shoppingList,
