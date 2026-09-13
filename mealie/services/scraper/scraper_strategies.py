@@ -864,3 +864,265 @@ class RecipeScraperColes(ABCScraperStrategy):
         )
 
         return recipe, ScrapedExtras()
+
+
+class RecipeScraperABC(ABCScraperStrategy):
+    """Custom Scraper Strategy for ABC News Australia (abc.net.au).
+
+    ABC News recipes are delivered via a Next.js application that embeds
+    structured recipe payloads inside `<script id="__NEXT_DATA__">`, rather
+    than traditional schema.org ld+json script tags.
+
+    A secondary semantic HTML DOM fallback is included to parse
+    `<section data-component="RecipeIngredients">` checkboxes and method steps
+    if the Next.js payload format ever varies.
+    """
+
+    def can_scrape(self) -> bool:
+        """Determines if the scraper strategy can handle the given URL."""
+        if not self.url:
+            return False
+        return "abc.net.au" in self.url
+
+    async def get_html(self, url: str) -> str:
+        """Fetch HTML content safely, respecting rate limits and timeouts."""
+        return self.raw_html or await safe_scrape_html(url)
+
+    @staticmethod
+    def _parse_time_string(time_str: str | None) -> str | None:
+        """Convert time string representations (e.g. '15m', '40 minutes', '1 hour') to ISO-8601 duration."""
+        if not time_str:
+            return None
+        time_lower = time_str.lower()
+        hours = 0
+        minutes = 0
+
+        # Match patterns like '1 hour', '1h', '2 hours'
+        if hr_match := re.search(r"(\d+)\s*(?:h|hr|hour)", time_lower):
+            hours = int(hr_match.group(1))
+
+        # Match patterns like '15m', '15 min', '15 minutes'
+        if min_match := re.search(r"(\d+)\s*(?:m|min|minute)", time_lower):
+            minutes = int(min_match.group(1))
+
+        if hours > 0 and minutes > 0:
+            return f"PT{hours}H{minutes}M"
+        if hours > 0:
+            return f"PT{hours}H"
+        if minutes > 0:
+            return f"PT{minutes}M"
+
+        return None
+
+    @staticmethod
+    def _extract_text_nodes(node: Any) -> list[str]:
+        """Recursively collect plain text content from ABC Next.js rich text descriptor objects."""
+        texts: list[str] = []
+        if isinstance(node, dict):
+            if node.get("type") == "text" and "content" in node:
+                texts.append(str(node["content"]))
+            for child in node.get("children", []):
+                texts.extend(RecipeScraperABC._extract_text_nodes(child))
+        elif isinstance(node, list):
+            for item in node:
+                texts.extend(RecipeScraperABC._extract_text_nodes(item))
+        return texts
+
+    @staticmethod
+    def _extract_hero_image(recipe_data: dict[str, Any]) -> str | None:
+        """Extract high-resolution image URL from featuredMedia payload."""
+        for media in recipe_data.get("featuredMedia", []):
+            if not isinstance(media, dict):
+                continue
+            for crop in media.get("picture", {}).get("cropInfo", []):
+                for val in crop.get("value", []):
+                    if url := val.get("url"):
+                        return url
+        return None
+
+    def _extract_from_next_data(  # noqa: C901
+        self, soup: bs4.BeautifulSoup
+    ) -> tuple[dict[str, Any], list[str], list[RecipeStep]] | None:
+        """Extract recipe fields from the Next.js __NEXT_DATA__ JSON script tag."""
+        script_tag = soup.find("script", id="__NEXT_DATA__")
+        if not script_tag:
+            return None
+
+        try:
+            content = script_tag.string or script_tag.get_text() or ""
+            data = json.loads(content)
+        except Exception:
+            self.logger.debug(f"ABC Scraper: Failed to parse __NEXT_DATA__ JSON from {self.url}")
+            return None
+
+        doc = data.get("props", {}).get("pageProps", {}).get("document", {})
+        recipe_data = doc.get("loaders", {}).get("recipepage", {}).get("recipe")
+        if not recipe_data or not isinstance(recipe_data, dict):
+            return None
+
+        title = recipe_data.get("name") or doc.get("title") or ""
+        description = recipe_data.get("description") or doc.get("synopsis") or ""
+        yield_str = str(recipe_data.get("recipeYield") or "")
+
+        stats = recipe_data.get("recipeStatsPrepared", {})
+        prep_raw = stats.get("prepTime", {}).get("accessible") or stats.get("prepTime", {}).get("visual")
+        cook_raw = stats.get("cookTime", {}).get("accessible") or stats.get("cookTime", {}).get("visual")
+        if not yield_str:
+            yield_str = str(stats.get("recipeYield") or "")
+
+        prep_time = self._parse_time_string(prep_raw)
+        cook_time = self._parse_time_string(cook_raw)
+
+        # Extract Ingredients
+        ingredients: list[str] = []
+        ing_prepared = recipe_data.get("recipeIngredientsPrepared", {})
+        for group in ing_prepared.get("ingredients", []):
+            if not isinstance(group, dict):
+                continue
+            heading = group.get("heading") or group.get("title")
+            if heading and str(heading).strip():
+                ingredients.append(f"[{str(heading).strip()}]")
+            for item in group.get("ingredients", []):
+                if isinstance(item, str) and item.strip():
+                    ingredients.append(item.strip())
+
+        # Extract Steps
+        steps: list[RecipeStep] = []
+        inst_prepared = recipe_data.get("recipeInstructionsPrepared", {}).get("instructions", {})
+        if isinstance(inst_prepared, dict) and "descriptor" in inst_prepared:
+
+            def find_li(n: Any) -> None:
+                if isinstance(n, dict):
+                    if n.get("key") == "li":
+                        text = "".join(self._extract_text_nodes(n)).strip()
+                        if text:
+                            steps.append(RecipeStep(title="", text=cleaner.clean_string(text)))
+                    for c in n.get("children", []):
+                        find_li(c)
+                elif isinstance(n, list):
+                    for i in n:
+                        find_li(i)
+
+            find_li(inst_prepared["descriptor"])
+
+        image_url = self._extract_hero_image(recipe_data)
+
+        metadata = {
+            "title": title,
+            "description": description,
+            "yield": yield_str,
+            "prep_time": prep_time,
+            "cook_time": cook_time,
+            "image": image_url,
+        }
+
+        return metadata, ingredients, steps
+
+    def _extract_from_dom(self, soup: bs4.BeautifulSoup) -> tuple[dict[str, Any], list[str], list[RecipeStep]]:
+        """Fallback extraction using semantic HTML tags and components."""
+        title = ""
+        if h1 := soup.find("h1"):
+            title = h1.get_text(strip=True)
+
+        description = ""
+        if og_desc := soup.find("meta", property="og:description"):
+            description = str(og_desc.get("content") or "")
+
+        # Extract ingredients from DOM checkbox inputs or list items
+        ingredients: list[str] = []
+        ing_section = soup.find(
+            lambda t: t.name in ["section", "div"] and "recipeingredients" in "".join(t.get("class", [])).lower()
+        )
+        if not ing_section:
+            ing_h2 = soup.find(lambda t: t.name in ["h2", "h3"] and "ingredient" in t.get_text().lower())
+            if ing_h2 and ing_h2.parent:
+                ing_section = ing_h2.parent
+
+        if ing_section:
+            for cb in ing_section.find_all("input", type="checkbox"):
+                name_attr = cb.get("name")
+                label_text = cb.find_next_sibling("label")
+                val = name_attr or (label_text.get_text(strip=True) if label_text else "")
+                if val and val.strip():
+                    ingredients.append(val.strip())
+
+        # Extract instructions from Method section
+        steps: list[RecipeStep] = []
+        method_h2 = soup.find(lambda t: t.name in ["h2", "h3"] and "method" in t.get_text().lower())
+        if method_h2:
+            next_tag = method_h2.find_next_sibling()
+            while next_tag and next_tag.name not in ["h1", "h2", "h3"]:
+                for li in next_tag.find_all("li"):
+                    txt = li.get_text(strip=True)
+                    if txt:
+                        steps.append(RecipeStep(title="", text=cleaner.clean_string(txt)))
+                next_tag = next_tag.find_next_sibling()
+
+        metadata = {
+            "title": title,
+            "description": description,
+            "yield": "1",
+            "prep_time": None,
+            "cook_time": None,
+            "image": None,
+        }
+
+        return metadata, ingredients, steps
+
+    async def parse(  # noqa: C901
+        self,
+        on_progress: Callable[[str], Awaitable[None]] | None = None,
+    ) -> tuple[Recipe, ScrapedExtras] | tuple[None, None]:
+        """Parse an ABC News recipe page into Mealie's Recipe schema.
+
+        Args:
+            on_progress: Optional async progress callback.
+
+        Returns:
+            A tuple of (Recipe, ScrapedExtras) or (None, None) if extraction fails.
+        """
+        if on_progress:
+            await on_progress(self.translator.t("recipe.create-progress.extracting-recipe-data"))
+
+        html = await self.get_html(self.url)
+        if not html:
+            return None, None
+
+        soup = bs4.BeautifulSoup(html, "html.parser")
+
+        # 1. Attempt primary extraction from Next.js payload
+        extracted = self._extract_from_next_data(soup)
+
+        # 2. Fallback to semantic DOM extraction if needed
+        if not extracted or (not extracted[1] and not extracted[2]):
+            metadata, ingredients, steps = self._extract_from_dom(soup)
+        else:
+            metadata, ingredients, steps = extracted
+
+        if not ingredients and not steps:
+            self.logger.debug(f"ABC Scraper: Unable to extract ingredients or steps from {self.url}")
+            return None, None
+
+        # Fallback image extraction from OpenGraph tags if not provided in JSON
+        image_url = metadata.get("image")
+        if not image_url:
+            og_img = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "twitter:image"})
+            if og_img and og_img.get("content"):
+                image_url = str(og_img["content"])
+
+        title = metadata.get("title") or "ABC Recipe"
+
+        recipe = Recipe(
+            name=cleaner.clean_string(title),
+            slug=slugify(title),
+            image=image_url,
+            description=cleaner.clean_string(metadata.get("description", "")),
+            recipe_yield=metadata.get("yield") or "1",
+            recipe_ingredient=cleaner.clean_ingredients(ingredients),
+            recipe_instructions=steps,
+            prep_time=metadata.get("prep_time"),
+            perform_time=metadata.get("cook_time"),
+            org_url=self.url,
+        )
+
+        return recipe, ScrapedExtras()

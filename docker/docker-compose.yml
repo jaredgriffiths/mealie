@@ -4,8 +4,8 @@ services:
     image: ghcr.io/jaredgriffiths/mealie:latest
 
     restart: always
-    expose:
-      - "9000"
+    ports:
+      - "9925:9000"
     deploy:
       resources:
         limits:
@@ -17,16 +17,4 @@ services:
       PUID: 1000
       PGID: 100
       TZ: Australia/Victoria
-      BASE_URL: https://192.168.50.107:9925
-
-  caddy:
-    image: caddy:latest
-    container_name: mealie-proxy
-    restart: always
-    ports:
-      - "9925:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-
-volumes:
-  mealie-data:
+      BASE_URL: http://192.168.50.107:9925

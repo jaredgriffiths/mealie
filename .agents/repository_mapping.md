@@ -50,6 +50,7 @@ Mealie uses a multi-tiered scraping engine to ingest web recipes automatically:
 | Component / Strategy | File Path | Description |
 |---|---|---|
 | **`safe_scrape_html()`** | `mealie/services/scraper/scraper_strategies.py` | Multi-signature TLS handshake browser impersonation (`httpx-curl-cffi`), realistic headers, and anti-bot challenge block page detection (Akamai, Cloudflare, DataDome). |
+| **`RecipeScraperABC`** | `mealie/services/scraper/scraper_strategies.py` | Native scraper for Australian Broadcasting Corporation (`abc.net.au/news/...`). Parses Next.js `__NEXT_DATA__` structured recipe JSON and semantic HTML DOM fallbacks for title, ingredients with sections, instructions, timings, yield, and high-res imagery. |
 | **`RecipeScraperColes`** | `mealie/services/scraper/scraper_strategies.py` | Native scraper for `coles.com.au`. Parses Adobe Experience Manager (AEM) JSON components for title, ingredients with sections, method steps, yields, prep/cook times, and images. |
 | **`RecipeScraperPackage`** | `mealie/services/scraper/scraper_strategies.py` | Standard `schema.org/Recipe` `ld+json` scraper via `recipe-scrapers` library. |
 | **`RecipeScraperOpenAI`** | `mealie/services/scraper/scraper_strategies.py` | AI-assisted fallback scraper when structured `ld+json` is missing. |
