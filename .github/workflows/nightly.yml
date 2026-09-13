@@ -1,15 +1,7 @@
 name: Docker Nightly Production
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '*.md'
-      - '.devcontainer/**'
-      # I'm not excluding .github as changes in there might be to workflows etc
-      - '.vscode/**'
-      - 'docs/**'
+  workflow_dispatch:
 
 concurrency:
   group: nightly-${{ github.ref }}

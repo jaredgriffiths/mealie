@@ -113,7 +113,8 @@ FROM venv-builder-base AS venv-builder
 COPY --from=packages * /dist/
 
 # Install the wheel with exact versions of dependencies into the venv
-RUN . $VENV_PATH/bin/activate \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    . $VENV_PATH/bin/activate \
     && pip install --require-hashes -r /dist/requirements.txt --find-links /dist
 
 ###############################################
