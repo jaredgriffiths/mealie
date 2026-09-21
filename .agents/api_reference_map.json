@@ -46,6 +46,20 @@
       "router_file": "mealie/routes/users/users.py",
       "repository": "self.repos.users",
       "schema_out": "UserOut"
+    },
+    "categories": {
+      "prefix": "/api/organizers/categories",
+      "router_file": "mealie/routes/organizers/controller_categories.py",
+      "repository": "self.repos.categories",
+      "schema_in": "CategoryIn",
+      "schema_out": "CategoryOut"
+    },
+    "tags": {
+      "prefix": "/api/organizers/tags",
+      "router_file": "mealie/routes/organizers/controller_tags.py",
+      "repository": "self.repos.tags",
+      "schema_in": "TagIn",
+      "schema_out": "TagOut"
     }
   },
   "admin_routes": {

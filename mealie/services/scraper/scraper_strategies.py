@@ -2,7 +2,6 @@ import asyncio
 import functools
 import json
 import re
-import time
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -12,7 +11,6 @@ import bs4
 import extruct
 import yt_dlp
 from fastapi import HTTPException, status
-from httpx import AsyncClient, Response
 from recipe_scrapers import NoSchemaFoundInWildMode, SchemaScraperFactory, scrape_html
 from slugify import slugify
 from w3lib.html import get_base_url
@@ -87,106 +85,13 @@ class ForceTimeoutException(Exception):
 
 async def safe_scrape_html(url: str) -> str:
     """
-    Scrapes the html from a url but will cancel the request
-    if the request takes longer than SCRAPER_TIMEOUT seconds. This is used to mitigate
-    DDOS attacks from users providing a url with arbitrary large content.
-
-    Cycles through standard HTTP transport and browser TLS impersonations (via httpx-curl-cffi)
-    with realistic HTTP/2 headers to bypass anti-bot detection systems (Akamai, Cloudflare, DataDome).
+    Scrapes the html from a url using resilient browser impersonation rotation,
+    configured outbound proxies, and optional FlareSolverr challenge escalation.
     """
-    logger.debug(f"Scraping URL: {url}")
-
-    html_bytes = b""
-    response: Response | None = None
-
-    for impersonation in BROWSER_IMPERSONATIONS:
-        logger.debug(f'Trying browser impersonation: "{impersonation}"')
-
-        html_bytes = b""
-        response = None
-
-        if impersonation:
-            transport = safehttp.AsyncSafeTransport(
-                impersonate=impersonation,
-                default_headers=True,
-                verify=False,
-            )
-        else:
-            transport = None
-
-        try:
-            async with AsyncClient(transport=transport, headers=REALISTIC_BROWSER_HEADERS, verify=False) as client:
-                async with client.stream(
-                    "GET",
-                    url,
-                    timeout=SCRAPER_TIMEOUT,
-                    follow_redirects=True,
-                ) as resp:
-                    if resp.status_code in (403, 429):
-                        logger.debug(
-                            f'Status code {resp.status_code} with impersonation "{impersonation}", trying next'
-                        )
-                        continue
-
-                    if resp.status_code >= 400:
-                        logger.debug(f'Error status code {resp.status_code} with impersonation "{impersonation}"')
-                        break
-
-                    start_time = time.time()
-
-                    async for chunk in resp.aiter_bytes(chunk_size=1024):
-                        html_bytes += chunk
-
-                        if time.time() - start_time > SCRAPER_TIMEOUT:
-                            raise ForceTimeoutException()
-
-                    # Detect anti-bot challenge block pages
-                    if html_bytes:
-                        encoding = resp.encoding or resp.apparent_encoding or "utf-8"
-                        try:
-                            decoded = str(html_bytes, encoding, errors="replace")
-                        except Exception:
-                            decoded = str(html_bytes, errors="replace")
-
-                        if any(sig in decoded.lower() for sig in ANTI_BOT_BLOCK_SIGNATURES):
-                            logger.debug(
-                                f'Anti-bot challenge block detected with impersonation "{impersonation}", trying next'
-                            )
-                            html_bytes = b""
-                            continue
-
-                    response = resp
-                    break
-        except Exception as e:
-            logger.debug(f'Scrape failed with impersonation "{impersonation}": {e}, trying next')
-            continue
-
-    if not (response and html_bytes):
+    result = await safehttp.resilient_fetch(url)
+    if not result:
         return ""
-
-    # =====================================
-    # Copied from requests text property
-
-    # Try charset from content-type
-    encoding = response.encoding
-
-    # Fallback to auto-detected encoding.
-    if encoding is None:
-        encoding = response.apparent_encoding
-
-    # Decode unicode from given encoding.
-    try:
-        content = str(html_bytes, encoding, errors="replace")
-    except (LookupError, TypeError):
-        # A LookupError is raised if the encoding was not found which could
-        # indicate a misspelling or similar mistake.
-        #
-        # A TypeError can be raised if encoding is None
-        #
-        # So we try blindly encoding.
-        content = str(html_bytes, errors="replace")
-
-    return content
+    return result.text
 
 
 class ABCScraperStrategy(ABC):

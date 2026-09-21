@@ -37,6 +37,8 @@ This index documents the correct mappings between SQLAlchemy models and the attr
 | **Households** | `self.repos.households` | `mealie/repos/repository_household.py` |
 | **AI Providers** | `self.repos.group_ai_providers` | `mealie/repos/repository_ai_provider.py` |
 | **Cookbooks** | `self.repos.cookbooks` | `mealie/repos/repository_cookbooks.py` |
+| **Categories** | `self.repos.categories` | `mealie/repos/repository_factory.py` |
+| **Tags** | `self.repos.tags` | `mealie/repos/repository_factory.py` |
 
 > [!WARNING]
 > **Common Pitfall**: Do **NOT** use `self.repos.shopping_lists` or `self.repos.meal_plans`. Doing so will raise an `AttributeError` at runtime. Refer to the mapping above.
