@@ -1,9 +1,9 @@
 name: Automatic Locale Sync
 
 on:
-  schedule:
-    # Run every Sunday at 2 AM UTC
-    - cron: "0 2 * * 0"
+  # Weekly schedule disabled to save runner minutes; run manually if secrets are configured
+  # schedule:
+  #   - cron: "0 2 * * 0"
   workflow_dispatch:
     # Allow manual triggering from the GitHub UI
 
@@ -12,7 +12,15 @@ permissions:
   pull-requests: write # To create pull requests
 
 jobs:
+  skip-locales:
+    if: ${{ secrets.COMMIT_BOT_APP_ID == '' || secrets.COMMIT_BOT_APP_PRIVATE_KEY == '' || secrets.CROWDIN_API_KEY == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Missing required secrets
+        run: echo "Skipping locale sync because required secrets (COMMIT_BOT_APP_ID, COMMIT_BOT_APP_PRIVATE_KEY, CROWDIN_API_KEY) are not configured."
+
   sync-locales:
+    if: ${{ secrets.COMMIT_BOT_APP_ID != '' && secrets.COMMIT_BOT_APP_PRIVATE_KEY != '' && secrets.CROWDIN_API_KEY != '' }}
     runs-on: ubuntu-latest
     env:
       # Install from the committed lockfile; never re-resolve (see pyproject
