@@ -8,6 +8,7 @@ on:
       - '*.md'
       - '.vscode/**'
       - 'docs/**'
+  workflow_dispatch:
 
 concurrency:
   group: live-publish-${{ github.ref }}
