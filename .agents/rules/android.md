@@ -1,7 +1,6 @@
 ---
-trigger: always_on
-glob: ["archive/android/**", "apps/mobile/**", "frontend/**"]
 description: "Guidelines and architecture notes for Android & Mobile PWA integration"
+trigger: always_on
 ---
 
 # Android & Mobile Client Guidelines
